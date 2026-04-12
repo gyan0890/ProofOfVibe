@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export PATH=\"/Users/gyan/.nvm/versions/node/v23.9.0/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin\")",
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(npx create-next-app@14 . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --no-eslint)",
+      "Bash(npx create-next-app@14 . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --no-eslint --yes)",
+      "Bash(mkdir -p /Users/gyan/Documents/Starknet/ProofOfVibe/tmp-create)",
+      "Bash(npx create-next-app@14 proof-of-vibe --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --no-eslint --yes)",
+      "Bash(cp -r /Users/gyan/Documents/Starknet/ProofOfVibe/tmp-create/proof-of-vibe/. /Users/gyan/Documents/Starknet/ProofOfVibe/)",
+      "Bash(rm -rf /Users/gyan/Documents/Starknet/ProofOfVibe/tmp-create)",
+      "Bash(npm install:*)",
+      "Bash(chmod +x /Users/gyan/Documents/Starknet/ProofOfVibe/scripts/deploy.sh)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

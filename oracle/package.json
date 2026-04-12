@@ -1,0 +1,16 @@
+{
+  "name": "proof-of-vibe-oracle",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Centralised oracle worker for Proof of Vibe MVP",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "node-fetch": "^3.0.0",
+    "starknet": "^6.0.0"
+  }
+}
