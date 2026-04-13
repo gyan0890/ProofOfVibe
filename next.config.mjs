@@ -1,5 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          // Required for WebAssembly (secp256k1, cartridge-wasm) to compile in browser
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+          {
+            key: "Cross-Origin-Embedder-Policy",
+            value: "unsafe-none",
+          },
+        ],
+      },
+    ];
+  },
+
   webpack(config, { isServer }) {
     config.experiments = {
       ...config.experiments,
