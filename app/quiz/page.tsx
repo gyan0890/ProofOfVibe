@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { QUIZ_QUESTIONS } from "@/demo/mockData";
 import { computeVibeFromQuiz } from "@/lib/vibeTypes";
 import { generatePersonaName, generateSalt } from "@/lib/utils";
+import { saveCardLocally } from "@/lib/storage";
+import { CardData } from "@/lib/types";
 
 export default function QuizPage() {
   const router = useRouter();
@@ -30,7 +32,28 @@ export default function QuizPage() {
       const personaName = generatePersonaName();
       const salt = generateSalt();
 
-      // Store in session
+      // Persist card to localStorage so it survives tab close
+      const card: CardData = {
+        id: `local-${Date.now()}`,
+        owner: "unanchored",
+        commitment: "0x" + salt.slice(0, 16),
+        revealedType: vibeType,
+        paletteRevealed: false,
+        mintTimestamp: Date.now(),
+        personaName,
+        isAnchored: false,
+        battleRecord: { wins: 0, losses: 0, total: 0 },
+        traitReveal: {
+          barFillsAccurate: false,
+          paletteRevealed: false,
+          typeRevealed: false,
+          lossCount: 0,
+        },
+        recentBattles: [],
+      };
+      saveCardLocally(card);
+
+      // Also keep session for reveal page
       sessionStorage.setItem("quizVibeType", String(vibeType));
       sessionStorage.setItem("personaName", personaName);
       sessionStorage.setItem("salt", salt);

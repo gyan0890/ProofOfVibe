@@ -2,46 +2,34 @@
 
 import { StarknetConfig, publicProvider, argent, braavos } from "@starknet-react/core";
 import { sepolia } from "@starknet-react/chains";
-import CartridgeConnector from "@cartridge/connector";
-import { ReactNode } from "react";
+import { ReactNode, useMemo, useState, useEffect } from "react";
 
-const cartridgeConnector = new CartridgeConnector({
-  policies: [
-    {
-      target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0",
-      method: "mint",
-    },
-    {
-      target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0",
-      method: "initiate_battle",
-    },
-    {
-      target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0",
-      method: "submit_defense",
-    },
-    {
-      target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0",
-      method: "resolve_battle",
-    },
-    {
-      target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0",
-      method: "owner_reveal",
-    },
-    {
-      target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0",
-      method: "submit_guess",
-    },
-  ],
-  rpc: process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "https://api.cartridge.gg/x/starknet/sepolia",
-});
-
-const connectors = [
-  cartridgeConnector,
-  argent(),
-  braavos(),
-];
-
+// ControllerConnector is lazy-imported to prevent WASM from loading during SSR
 export function Providers({ children }: { children: ReactNode }) {
+  const [ControllerConnector, setControllerConnector] = useState<any>(null);
+
+  useEffect(() => {
+    import("@cartridge/connector").then((mod) => {
+      setControllerConnector(() => mod.ControllerConnector);
+    });
+  }, []);
+
+  const connectors = useMemo(() => {
+    if (!ControllerConnector) return [argent(), braavos()];
+    const cartridge = new ControllerConnector({
+      policies: [
+        { target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0", method: "mint" },
+        { target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0", method: "initiate_battle" },
+        { target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0", method: "submit_defense" },
+        { target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0", method: "resolve_battle" },
+        { target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0", method: "owner_reveal" },
+        { target: process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0", method: "submit_guess" },
+      ],
+      rpc: process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "https://api.cartridge.gg/x/starknet/sepolia",
+    });
+    return [cartridge, argent(), braavos()];
+  }, [ControllerConnector]);
+
   return (
     <StarknetConfig
       chains={[sepolia]}

@@ -1,7 +1,4 @@
 use starknet::ContractAddress;
-use starknet::get_caller_address;
-use starknet::get_block_timestamp;
-use core::hash::LegacyHash;
 
 #[derive(Drop, Serde, starknet::Store)]
 pub struct CardData {
@@ -434,7 +431,6 @@ pub mod VibeCard {
             self.battle_losses.write(token_id, losses);
 
             let mut state = self.revealed_traits.read(token_id);
-            let card = self.cards.read(token_id);
 
             if losses >= 1_u8 && state.trait_1_word == 0 {
                 state.trait_1_word = 'trait_1'; // oracle sets actual word

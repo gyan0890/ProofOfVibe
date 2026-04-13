@@ -1,5 +1,3 @@
-use starknet::ContractAddress;
-
 #[starknet::interface]
 pub trait ISeasonClock<TContractState> {
     fn trigger_mass_reveal(ref self: TContractState);
