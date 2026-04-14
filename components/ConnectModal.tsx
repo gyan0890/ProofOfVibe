@@ -9,25 +9,54 @@ interface ConnectModalProps {
   onClose: () => void;
 }
 
-const CONNECTOR_META: Record<string, { icon: string; label: string; sublabel: string; featured?: boolean }> = {
+const CONNECTOR_META: Record<string, {
+  icon: string;
+  label: string;
+  sublabel: string;
+  featured?: boolean;
+  installUrl?: string;
+  installLabel?: string;
+}> = {
   cartridge: {
     icon: "🎮",
     label: "Cartridge Controller",
     sublabel: "No wallet needed · Passkey login",
     featured: true,
+    // Cartridge is always available (no extension needed)
   },
-  argentX: { icon: "🟠", label: "Argent X", sublabel: "Browser extension" },
-  braavos: { icon: "🟡", label: "Braavos", sublabel: "Browser extension" },
+  argentX: {
+    icon: "🟠",
+    label: "Argent X",
+    sublabel: "Browser extension",
+    installUrl: "https://www.argent.xyz/argent-x/",
+    installLabel: "Install Argent X →",
+  },
+  braavos: {
+    icon: "🟡",
+    label: "Braavos",
+    sublabel: "Browser extension",
+    installUrl: "https://braavos.app/download-braavos-wallet/",
+    installLabel: "Install Braavos →",
+  },
 };
 
 export function ConnectModal({ open, onClose }: ConnectModalProps) {
   const { connect, connectors } = useConnect();
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notInstalled, setNotInstalled] = useState<string | null>(null);
 
   async function handleConnect(connectorId: string) {
     const connector = connectors.find((c) => c.id === connectorId);
     if (!connector) return;
+
+    // Check if the extension wallet is actually installed
+    if (connectorId !== "cartridge" && !connector.available()) {
+      setNotInstalled(connectorId);
+      return;
+    }
+
+    setNotInstalled(null);
     setConnecting(connectorId);
     setError(null);
     try {
@@ -93,53 +122,105 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
                     sublabel: "Starknet wallet",
                   };
                   const isLoading = connecting === connector.id;
+                  const isUnavailable = connector.id !== "cartridge" && !connector.available();
+                  const isShowingInstall = notInstalled === connector.id;
 
                   return (
-                    <motion.button
-                      key={connector.id}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleConnect(connector.id)}
-                      disabled={!!connecting}
-                      className="min-touch flex items-center gap-4 p-4 rounded-xl text-left w-full disabled:opacity-50 transition-all"
-                      style={{
-                        background: meta.featured
-                          ? "rgba(127,119,221,0.1)"
-                          : "rgba(255,255,255,0.04)",
-                        border: `1px solid ${meta.featured ? "rgba(127,119,221,0.3)" : "rgba(255,255,255,0.08)"}`,
-                      }}
-                    >
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
-                        style={{ background: meta.featured ? "rgba(127,119,221,0.15)" : "rgba(255,255,255,0.05)" }}
+                    <div key={connector.id} className="flex flex-col gap-1.5">
+                      <motion.button
+                        whileHover={{ scale: isUnavailable ? 1 : 1.02 }}
+                        whileTap={{ scale: isUnavailable ? 1 : 0.98 }}
+                        onClick={() => handleConnect(connector.id)}
+                        disabled={!!connecting}
+                        className="min-touch flex items-center gap-4 p-4 rounded-xl text-left w-full disabled:opacity-50 transition-all"
+                        style={{
+                          background: meta.featured
+                            ? "rgba(127,119,221,0.1)"
+                            : isUnavailable
+                            ? "rgba(255,255,255,0.02)"
+                            : "rgba(255,255,255,0.04)",
+                          border: `1px solid ${
+                            isShowingInstall
+                              ? "rgba(251,191,36,0.4)"
+                              : meta.featured
+                              ? "rgba(127,119,221,0.3)"
+                              : isUnavailable
+                              ? "rgba(255,255,255,0.05)"
+                              : "rgba(255,255,255,0.08)"
+                          }`,
+                          opacity: isUnavailable && !isShowingInstall ? 0.6 : 1,
+                        }}
                       >
-                        {isLoading ? (
-                          <motion.span
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="text-sm"
-                          >
-                            ⟳
-                          </motion.span>
-                        ) : (
-                          meta.icon
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-card font-medium text-white text-sm">{meta.label}</p>
-                          {meta.featured && (
-                            <span
-                              className="text-[9px] font-card px-1.5 py-0.5 rounded-full tracking-wider"
-                              style={{ background: "rgba(127,119,221,0.2)", color: "#a78bfa" }}
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
+                          style={{ background: meta.featured ? "rgba(127,119,221,0.15)" : "rgba(255,255,255,0.05)" }}
+                        >
+                          {isLoading ? (
+                            <motion.span
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                              className="text-sm"
                             >
-                              NEW TO CRYPTO
-                            </span>
+                              ⟳
+                            </motion.span>
+                          ) : (
+                            meta.icon
                           )}
                         </div>
-                        <p className="text-white/30 text-xs font-ui mt-0.5">{meta.sublabel}</p>
-                      </div>
-                    </motion.button>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-card font-medium text-white text-sm">{meta.label}</p>
+                            {meta.featured && (
+                              <span
+                                className="text-[9px] font-card px-1.5 py-0.5 rounded-full tracking-wider"
+                                style={{ background: "rgba(127,119,221,0.2)", color: "#a78bfa" }}
+                              >
+                                NEW TO CRYPTO
+                              </span>
+                            )}
+                            {isUnavailable && !isShowingInstall && (
+                              <span
+                                className="text-[9px] font-card px-1.5 py-0.5 rounded-full tracking-wider"
+                                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}
+                              >
+                                NOT INSTALLED
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-white/30 text-xs font-ui mt-0.5">{meta.sublabel}</p>
+                        </div>
+                      </motion.button>
+
+                      {/* Install prompt — shown inline when user taps an uninstalled wallet */}
+                      <AnimatePresence>
+                        {isShowingInstall && meta.installUrl && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div
+                              className="flex items-center justify-between px-4 py-3 rounded-xl"
+                              style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)" }}
+                            >
+                              <p className="text-xs font-ui text-amber-300/80">
+                                {meta.label} isn't installed in this browser.
+                              </p>
+                              <a
+                                href={meta.installUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ml-3 text-xs font-card text-amber-300 hover:text-amber-200 transition-colors shrink-0 underline underline-offset-2"
+                              >
+                                {meta.installLabel}
+                              </a>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   );
                 })}
               </div>

@@ -6,17 +6,31 @@ export const DEMO_CARDS: CardData[] = [
     owner: "0x1a3f...9b2c",
     commitment: "0xabc123",
     revealedType: undefined,
-    paletteRevealed: false,
+    paletteRevealed: true,
     mintTimestamp: Date.now() - 3 * 24 * 60 * 60 * 1000,
     personaName: "Mystic Wanderer #4721",
     isAnchored: true,
     battleRecord: { wins: 3, losses: 1, total: 4 },
     traitReveal: {
-      trait1Word: "methodical",
+      // 1 loss: identity dimension revealed
+      trait1Word: "Semi-public · selective disclosure",
       barFillsAccurate: false,
-      paletteRevealed: false,
+      paletteRevealed: true,
       typeRevealed: false,
       lossCount: 1,
+    },
+    privacyProfile: {
+      identityLeakage: 42,
+      geographicSignal: 28,
+      financialProfile: 55,
+      behavioralFingerprint: 61,
+      identityLabel: "Semi-public · selective disclosure",
+      geographicLabel: "Mixed CEX / DEX · partial signal",
+      financialLabel: "Moderate exposure · active wallet",
+      behavioralLabel: "DeFi native · traceable patterns",
+      scannedAddress: "quiz",
+      scanTimestamp: Date.now() - 3 * 24 * 60 * 60 * 1000,
+      totalTransactions: 0,
     },
     recentBattles: [
       { battleId: "b1", opponentId: "demo-002", opponentPersona: "Shadow Cipher #1337", won: true, timestamp: Date.now() - 3600000 },
@@ -36,12 +50,26 @@ export const DEMO_CARDS: CardData[] = [
     isAnchored: true,
     battleRecord: { wins: 2, losses: 5, total: 7 },
     traitReveal: {
-      trait1Word: "high-velocity",
-      trait2Word: "risk-tolerant",
+      // 5 losses: identity + geographic revealed, fills accurate
+      trait1Word: "KYC exchange user · region traceable",
+      trait2Word: "Global (Asia-origin)",
       barFillsAccurate: true,
       paletteRevealed: true,
       typeRevealed: true,
       lossCount: 5,
+    },
+    privacyProfile: {
+      identityLeakage: 78,
+      geographicSignal: 85,
+      financialProfile: 48,
+      behavioralFingerprint: 72,
+      identityLabel: "KYC exchange user · region traceable",
+      geographicLabel: "Global (Asia-origin)",
+      financialLabel: "Moderate exposure · active wallet",
+      behavioralLabel: "High-frequency · multi-protocol",
+      scannedAddress: "0x2b5e...4d1f",
+      scanTimestamp: Date.now() - 5 * 24 * 60 * 60 * 1000,
+      totalTransactions: 189,
     },
     recentBattles: [
       { battleId: "b5", opponentId: "demo-001", opponentPersona: "Mystic Wanderer #4721", won: false, timestamp: Date.now() - 3600000 },
@@ -53,16 +81,31 @@ export const DEMO_CARDS: CardData[] = [
     owner: "0x3c7a...8e3d",
     commitment: "0xghi789",
     revealedType: undefined,
-    paletteRevealed: false,
+    paletteRevealed: true,
     mintTimestamp: Date.now() - 7 * 24 * 60 * 60 * 1000,
     personaName: "Neon Echo #9999",
     isAnchored: false,
     battleRecord: { wins: 6, losses: 0, total: 6 },
     traitReveal: {
+      // 0 losses: only identity dimension label shown (publicly visible), score hidden
+      trait1Word: "Anonymous · no identity markers",
       barFillsAccurate: false,
-      paletteRevealed: false,
+      paletteRevealed: true,
       typeRevealed: false,
       lossCount: 0,
+    },
+    privacyProfile: {
+      identityLeakage: 8,
+      geographicSignal: 6,
+      financialProfile: 12,
+      behavioralFingerprint: 18,
+      identityLabel: "Anonymous · no identity markers",
+      geographicLabel: "No geographic footprint",
+      financialLabel: "Cold storage · minimal visibility",
+      behavioralLabel: "Minimal footprint · rare mover",
+      scannedAddress: "quiz",
+      scanTimestamp: Date.now() - 7 * 24 * 60 * 60 * 1000,
+      totalTransactions: 0,
     },
     recentBattles: [],
   },
@@ -77,12 +120,26 @@ export const DEMO_CARDS: CardData[] = [
     isAnchored: true,
     battleRecord: { wins: 4, losses: 3, total: 7 },
     traitReveal: {
-      trait1Word: "contract-deployer",
-      trait2Word: "testnet-native",
+      // 3 losses: identity + geographic revealed
+      trait1Word: "Pseudonymous · protocol-only exposure",
+      trait2Word: "DEX-only · minimal geo signal",
       barFillsAccurate: true,
       paletteRevealed: true,
       typeRevealed: true,
       lossCount: 3,
+    },
+    privacyProfile: {
+      identityLeakage: 18,
+      geographicSignal: 14,
+      financialProfile: 22,
+      behavioralFingerprint: 53,
+      identityLabel: "Pseudonymous · protocol-only exposure",
+      geographicLabel: "DEX-only · minimal geo signal",
+      financialLabel: "Distributed · hard to size",
+      behavioralLabel: "Builder patterns · deployer",
+      scannedAddress: "quiz",
+      scanTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
+      totalTransactions: 0,
     },
     recentBattles: [
       { battleId: "b7", opponentId: "demo-001", opponentPersona: "Mystic Wanderer #4721", won: true, timestamp: Date.now() - 86400000 },
@@ -99,11 +156,25 @@ export const DEMO_CARDS: CardData[] = [
     isAnchored: true,
     battleRecord: { wins: 5, losses: 2, total: 7 },
     traitReveal: {
-      trait1Word: "large-positions",
+      // 2 losses: identity revealed
+      trait1Word: "Pseudonymous · protocol-only exposure",
       barFillsAccurate: false,
       paletteRevealed: true,
       typeRevealed: false,
       lossCount: 2,
+    },
+    privacyProfile: {
+      identityLeakage: 22,
+      geographicSignal: 10,
+      financialProfile: 82,
+      behavioralFingerprint: 30,
+      identityLabel: "Pseudonymous · protocol-only exposure",
+      geographicLabel: "No geographic footprint",
+      financialLabel: "Visible bag · balance trackable",
+      behavioralLabel: "Distributed · hard to size",
+      scannedAddress: "0x5e0c...1a7b",
+      scanTimestamp: Date.now() - 8 * 24 * 60 * 60 * 1000,
+      totalTransactions: 47,
     },
     recentBattles: [
       { battleId: "b8", opponentId: "demo-003", opponentPersona: "Neon Echo #9999", won: false, timestamp: Date.now() - 172800000 },
@@ -146,50 +217,158 @@ export const LEADERBOARD_MOCK_CARDS: CardData[] = [
 export const DEMO_SEASON_DAY = 7;
 export const DEMO_SEASON_TOTAL = 14;
 
-export const QUIZ_QUESTIONS = [
+/**
+ * Quiz questions — each answer carries score deltas for the 4 privacy dimensions.
+ * Scores are summed across all 5 questions then normalised to 0–100.
+ *
+ * Dimensions:
+ *   identity   — how exposed your real-world identity is
+ *   geographic — how traceable your geographic region is
+ *   financial  — how visible your wealth / transaction volume is
+ *   behavioral — how traceable your on-chain activity patterns are
+ */
+export interface QuizAnswerScores {
+  identity: number;
+  geographic: number;
+  financial: number;
+  behavioral: number;
+}
+
+export interface QuizAnswer {
+  label: string;
+  icon: string;
+  scores: QuizAnswerScores;
+}
+
+export interface QuizQuestion {
+  question: string;
+  answers: QuizAnswer[];
+}
+
+export const QUIZ_QUESTIONS: QuizQuestion[] = [
   {
-    question: "It's 2am. You're most likely...",
+    question: "Who knows which wallet is yours?",
     answers: [
-      { label: "Deep in a research rabbit hole", icon: "🔭" },
-      { label: "Still in the group chat", icon: "💬" },
-      { label: "Placing a trade you'll explain later", icon: "📈" },
-      { label: "Building something no one's asked for yet", icon: "🔨" },
+      {
+        label: "Everyone — I have an ENS name and share my address openly",
+        icon: "📛",
+        scores: { identity: 90, geographic: 30, financial: 20, behavioral: 40 },
+      },
+      {
+        label: "A few people I've shared it with selectively",
+        icon: "👥",
+        scores: { identity: 50, geographic: 15, financial: 10, behavioral: 25 },
+      },
+      {
+        label: "Only the protocols I interact with — no name attached",
+        icon: "🔌",
+        scores: { identity: 15, geographic: 5, financial: 5, behavioral: 50 },
+      },
+      {
+        label: "Nobody. Fresh wallet, no ties to any identity",
+        icon: "👻",
+        scores: { identity: 5, geographic: 0, financial: 5, behavioral: 5 },
+      },
     ],
   },
   {
-    question: "Someone asks your opinion. You...",
+    question: "How do you on-ramp and off-ramp?",
     answers: [
-      { label: "Share a 12-point framework", icon: "📊" },
-      { label: "Send three memes and a voice note", icon: "🎙️" },
-      { label: 'Say "depends" and mean it', icon: "🌀" },
-      { label: "Already moved on to the next thing", icon: "⚡" },
+      {
+        label: "KYC exchange — Binance, Coinbase, Kraken",
+        icon: "🏦",
+        scores: { identity: 35, geographic: 85, financial: 25, behavioral: 40 },
+      },
+      {
+        label: "Mix of CEX deposits and peer-to-peer",
+        icon: "🔄",
+        scores: { identity: 15, geographic: 45, financial: 20, behavioral: 50 },
+      },
+      {
+        label: "DEXs only — never submitted KYC to anything",
+        icon: "🌊",
+        scores: { identity: 5, geographic: 15, financial: 10, behavioral: 65 },
+      },
+      {
+        label: "I get paid in crypto directly or mine it",
+        icon: "⛏️",
+        scores: { identity: 0, geographic: 5, financial: 15, behavioral: 70 },
+      },
     ],
   },
   {
-    question: "Your ideal power move is...",
+    question: "How exposed is your bag?",
     answers: [
-      { label: "Knowing something before anyone else does", icon: "👁️" },
-      { label: "Being the connector in the room", icon: "🕸️" },
-      { label: "Quietly accumulating while others talk", icon: "🐋" },
-      { label: "Shipping while others plan", icon: "🚀" },
+      {
+        label: "One wallet, full public history, visible balance",
+        icon: "📖",
+        scores: { identity: 45, geographic: 20, financial: 85, behavioral: 45 },
+      },
+      {
+        label: "One active wallet with a moderate stack",
+        icon: "💼",
+        scores: { identity: 20, geographic: 10, financial: 55, behavioral: 55 },
+      },
+      {
+        label: "Intentionally split across multiple wallets",
+        icon: "🗂️",
+        scores: { identity: 10, geographic: 5, financial: 25, behavioral: 40 },
+      },
+      {
+        label: "Mostly cold storage — it barely moves",
+        icon: "🧊",
+        scores: { identity: 5, geographic: 5, financial: 10, behavioral: 10 },
+      },
     ],
   },
   {
-    question: "On a Saturday morning you're...",
+    question: "What's your on-chain activity pattern?",
     answers: [
-      { label: "Checking dashboards", icon: "📡" },
-      { label: "At a community event", icon: "🎪" },
-      { label: "Nowhere to be found", icon: "👻" },
-      { label: "Deploying something to testnet", icon: "⚙️" },
+      {
+        label: "Everywhere — DeFi, NFTs, bridges, multiple chains daily",
+        icon: "⚡",
+        scores: { identity: 30, geographic: 35, financial: 55, behavioral: 85 },
+      },
+      {
+        label: "DeFi native — yield farming, LPs, protocol hopping",
+        icon: "🌐",
+        scores: { identity: 15, geographic: 20, financial: 40, behavioral: 65 },
+      },
+      {
+        label: "I build and deploy contracts, mostly testnet",
+        icon: "🔨",
+        scores: { identity: 10, geographic: 10, financial: 15, behavioral: 50 },
+      },
+      {
+        label: "Simple transfers, rarely interact with contracts",
+        icon: "🪨",
+        scores: { identity: 5, geographic: 5, financial: 10, behavioral: 15 },
+      },
     ],
   },
   {
-    question: "Your biggest flex is...",
+    question: "Your biggest on-chain flex is...",
     answers: [
-      { label: "Being right early", icon: "🎯" },
-      { label: "Your network", icon: "🌐" },
-      { label: "No one knows what you're doing", icon: "🫥" },
-      { label: "Your GitHub commit streak", icon: "💻" },
+      {
+        label: "My ENS name and everything I've touched publicly",
+        icon: "🌟",
+        scores: { identity: 70, geographic: 25, financial: 30, behavioral: 60 },
+      },
+      {
+        label: "The size of my bag — let the numbers speak",
+        icon: "🐋",
+        scores: { identity: 20, geographic: 15, financial: 70, behavioral: 25 },
+      },
+      {
+        label: "That nobody knows what I'm doing",
+        icon: "🫥",
+        scores: { identity: 5, geographic: 5, financial: 5, behavioral: 5 },
+      },
+      {
+        label: "The contracts and protocols I've shipped",
+        icon: "🚀",
+        scores: { identity: 15, geographic: 10, financial: 20, behavioral: 60 },
+      },
     ],
   },
 ];

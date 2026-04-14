@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { QUIZ_QUESTIONS } from "@/demo/mockData";
-import { computeVibeFromQuiz } from "@/lib/vibeTypes";
+import { computePrivacyFromQuiz } from "@/lib/quizScoring";
 import { generatePersonaName, generateSalt } from "@/lib/utils";
 import { saveCardLocally } from "@/lib/storage";
 import { CardData } from "@/lib/types";
@@ -26,9 +26,8 @@ export default function QuizPage() {
       setDirection(1);
       setCurrentQ(currentQ + 1);
     } else {
-      // Calculate result
       setCalculating(true);
-      const vibeType = computeVibeFromQuiz(newAnswers);
+      const { profile, vibeType } = computePrivacyFromQuiz(QUIZ_QUESTIONS, newAnswers);
       const personaName = generatePersonaName();
       const salt = generateSalt();
 
@@ -38,23 +37,26 @@ export default function QuizPage() {
         owner: "unanchored",
         commitment: "0x" + salt.slice(0, 16),
         revealedType: vibeType,
-        paletteRevealed: false,
+        paletteRevealed: true,
         mintTimestamp: Date.now(),
         personaName,
         isAnchored: false,
         battleRecord: { wins: 0, losses: 0, total: 0 },
         traitReveal: {
           barFillsAccurate: false,
-          paletteRevealed: false,
-          typeRevealed: false,
+          paletteRevealed: true,        // colour visible from day 1
+          typeRevealed: false,          // type name stays hidden
           lossCount: 0,
+          trait1Word: profile.identityLabel, // identity dimension publicly shown
         },
         recentBattles: [],
+        privacyProfile: profile,
       };
       saveCardLocally(card);
 
-      // Also keep session for reveal page
+      // Keep session for reveal page
       sessionStorage.setItem("quizVibeType", String(vibeType));
+      sessionStorage.setItem("quizPrivacyProfile", JSON.stringify(profile));
       sessionStorage.setItem("personaName", personaName);
       sessionStorage.setItem("salt", salt);
       sessionStorage.setItem("isAnchored", "false");

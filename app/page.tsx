@@ -47,7 +47,7 @@ export default function LandingPage() {
       {/* Hero */}
       <motion.section
         style={{ y: heroY }}
-        className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-20 pb-32"
+        className="relative min-h-screen flex flex-col items-center justify-center px-6 pt-28 pb-32"
       >
         {/* Floating background cards */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -117,6 +117,13 @@ export default function LandingPage() {
               className="min-touch flex items-center justify-center px-8 py-3 rounded-xl font-card font-medium text-white text-sm tracking-wide border border-white/20 hover:border-white/40 transition-all"
             >
               I&apos;m New Here
+            </Link>
+            <Link
+              href="/leaderboard"
+              className="min-touch flex items-center justify-center px-8 py-3 rounded-xl font-card font-medium text-white/60 text-sm tracking-wide hover:text-white transition-all"
+              style={{ border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.07)" }}
+            >
+              ⚔️ Leaderboard
             </Link>
           </motion.div>
 

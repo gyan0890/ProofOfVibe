@@ -6,7 +6,7 @@ import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { generateSalt, generatePersonaName } from "@/lib/utils";
 import { saveCardLocally, updateLocalCard, loadLocalCard } from "@/lib/storage";
 import { CardData, VibeTypeIndex } from "@/lib/types";
-import { hash } from "starknet";
+import { hash, shortString, CallData } from "starknet";
 
 const VIBECARD_ABI = [
   {
@@ -25,6 +25,7 @@ const VIBECARD_ABI = [
 export function useMint() {
   const { address } = useAccount();
   const [minting, setMinting] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { contract } = useContract({
@@ -55,17 +56,19 @@ export function useMint() {
           "0x" + salt,
         ]);
 
-        // Encode persona name as felt252 (truncate to 31 chars)
-        const nameBytes = new TextEncoder().encode(name.slice(0, 31));
-        const nameFelt =
-          "0x" +
-          Array.from(nameBytes)
-            .map((b) => b.toString(16).padStart(2, "0"))
-            .join("");
+        // Encode persona name as felt252 using shortString (max 31 ASCII chars)
+        const nameFelt = shortString.encodeShortString(name.slice(0, 31));
 
-        const calls = contract.populate("mint", [commitment, "0x0", nameFelt]);
+        const call = {
+          contractAddress: CONTRACT_ADDRESSES.vibeCard as `0x${string}`,
+          entrypoint: "mint",
+          calldata: CallData.compile([commitment, "0x0", nameFelt]),
+        };
 
-        const result = await sendAsync([calls]);
+        const result = await sendAsync([call]);
+        if (result?.transaction_hash) {
+          setTxHash(result.transaction_hash);
+        }
 
         // Update local card to anchored
         const existing = loadLocalCard();
@@ -109,5 +112,5 @@ export function useMint() {
     [address, contract, sendAsync]
   );
 
-  return { mint, minting, error };
+  return { mint, minting, txHash, error };
 }

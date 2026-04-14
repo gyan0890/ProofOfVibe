@@ -1,6 +1,6 @@
 "use client";
 
-import { StarknetConfig, publicProvider, argent, braavos } from "@starknet-react/core";
+import { StarknetConfig, jsonRpcProvider, argent, braavos } from "@starknet-react/core";
 import { sepolia } from "@starknet-react/chains";
 import { ReactNode, useMemo, useState, useEffect } from "react";
 
@@ -30,10 +30,16 @@ export function Providers({ children }: { children: ReactNode }) {
     return [cartridge, argent(), braavos()];
   }, [ControllerConnector]);
 
+  const provider = jsonRpcProvider({
+    rpc: () => ({
+      nodeUrl: process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "https://api.cartridge.gg/x/starknet/sepolia",
+    }),
+  });
+
   return (
     <StarknetConfig
       chains={[sepolia]}
-      provider={publicProvider()}
+      provider={provider}
       connectors={connectors}
       autoConnect
     >

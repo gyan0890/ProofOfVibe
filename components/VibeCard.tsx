@@ -18,35 +18,51 @@ interface VibeCardProps {
 
 function TraitBar({
   label,
+  subLabel,
   fill,
   color,
   revealed,
 }: {
   label: string;
+  subLabel?: string;
   fill: number;
   color: string;
   revealed: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 w-full">
-      <span
-        className="text-[10px] font-card tracking-widest w-28 shrink-0 truncate"
-        style={{ color: revealed ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)" }}
-      >
-        {revealed ? label.toUpperCase() : "░░░░░░░"}
-      </span>
-      <div
-        className="flex-1 h-1 rounded-full"
-        style={{ background: "rgba(255,255,255,0.08)" }}
-      >
-        <motion.div
-          className="h-1 rounded-full"
-          style={{ background: color }}
-          initial={{ width: "0%" }}
-          animate={{ width: `${fill}%` }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        />
+    <div className="flex flex-col gap-0.5 w-full">
+      <div className="flex items-center gap-2 w-full">
+        <span
+          className="text-[10px] font-card tracking-widest w-28 shrink-0 truncate"
+          style={{ color: revealed ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.3)" }}
+        >
+          {revealed ? label.toUpperCase() : "░░░░░░░"}
+        </span>
+        <div
+          className="flex-1 h-1 rounded-full"
+          style={{ background: "rgba(255,255,255,0.08)" }}
+        >
+          <motion.div
+            className="h-1 rounded-full"
+            style={{ background: color }}
+            initial={{ width: "0%" }}
+            animate={{ width: `${fill}%` }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          />
+        </div>
       </div>
+      {/* Privacy sub-label: short description shown when this dimension is revealed */}
+      {revealed && subLabel && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-[9px] font-ui truncate pl-0.5"
+          style={{ color: color + "99", paddingLeft: "calc(7rem + 0.5rem)" }}
+        >
+          {subLabel}
+        </motion.p>
+      )}
     </div>
   );
 }
@@ -100,19 +116,62 @@ export function VibeCard({
   const primaryColor = vibeType ? vibeType.primary : "#888780";
   const traits = vibeType ? vibeType.traits : (["░░░░░░░", "░░░░░░░", "░░░░░░░"] as [string, string, string]);
 
-  const traitLabels: [string, boolean][] = [
-    [traits[0], !!traitReveal.trait1Word || isTypeRevealed],
-    [traits[1], !!traitReveal.trait2Word || isTypeRevealed],
-    [traits[2], traitReveal.barFillsAccurate || isTypeRevealed],
-  ];
+  // For privacy-based cards the three bars map to the three revealed privacy dimensions.
+  // For quiz-based cards they map to the vibe type's standard trait words.
+  const isPrivacyCard = !!card.privacyProfile;
+  const p = card.privacyProfile;
 
-  const traitFills = traitReveal.barFillsAccurate || isTypeRevealed
-    ? [72, 58, 84]
+  // Privacy dimension labels (short, uppercase-friendly)
+  const PRIVACY_LABELS: [string, string, string] = ["IDENTITY", "GEOGRAPHY", "FINANCIAL"];
+  // Privacy dimension descriptions revealed progressively
+  const privacyDescriptions: [string, string, string] = p
+    ? [p.identityLabel, p.geographicLabel, p.financialLabel]
+    : ["", "", ""];
+
+  // Each bar: [displayLabel, isRevealed]
+  // - Privacy card: show dimension name when revealed; show description as tooltip/sub
+  // - Quiz card:    show vibe type trait word when revealed
+  const traitLabels: [string, boolean][] = isPrivacyCard
+    ? [
+        [PRIVACY_LABELS[0], !!traitReveal.trait1Word || isTypeRevealed],
+        [PRIVACY_LABELS[1], !!traitReveal.trait2Word || isTypeRevealed],
+        [PRIVACY_LABELS[2], traitReveal.barFillsAccurate || isTypeRevealed],
+      ]
     : [
-        Math.floor(50 + Math.random() * 30),
-        Math.floor(40 + Math.random() * 30),
-        Math.floor(60 + Math.random() * 30),
+        [traitReveal.trait1Word || traits[0], !!traitReveal.trait1Word || isTypeRevealed],
+        [traitReveal.trait2Word || traits[1], !!traitReveal.trait2Word || isTypeRevealed],
+        [traits[2], traitReveal.barFillsAccurate || isTypeRevealed],
       ];
+
+  // Bar fills: use actual privacy scores when the card has them
+  const privacyFills: [number, number, number] | null = p
+    ? [p.identityLeakage, p.geographicSignal, p.financialProfile]
+    : null;
+
+  // When fills are accurate (post 3 losses) or fully revealed: use real scores
+  const traitFills: [number, number, number] =
+    traitReveal.barFillsAccurate || isTypeRevealed
+      ? (privacyFills ?? [72, 58, 84])
+      : [
+          // Bar 1: show real score even before full accuracy if trait1 is visible
+          traitReveal.trait1Word && privacyFills
+            ? privacyFills[0]
+            : Math.floor(50 + Math.random() * 30),
+          // Bars 2 & 3: show real scores only after bar_fills_accurate
+          traitReveal.trait2Word && privacyFills
+            ? privacyFills[1]
+            : Math.floor(40 + Math.random() * 30),
+          Math.floor(60 + Math.random() * 30),
+        ];
+
+  // Sub-label shown beneath the bar (privacy description when revealed, empty for quiz)
+  const privacySubLabels: [string, string, string] = isPrivacyCard
+    ? [
+        traitReveal.trait1Word || isTypeRevealed ? privacyDescriptions[0] : "",
+        traitReveal.trait2Word || isTypeRevealed ? privacyDescriptions[1] : "",
+        traitReveal.barFillsAccurate || isTypeRevealed ? privacyDescriptions[2] : "",
+      ]
+    : ["", "", ""];
 
   const sizeMap = { sm: { w: 200, h: 300 }, md: { w: 320, h: 480 }, lg: { w: 380, h: 570 } };
   const { w, h } = sizeMap[size];
@@ -240,7 +299,8 @@ export function VibeCard({
             {traitLabels.map(([label, revealed], i) => (
               <TraitBar
                 key={i}
-                label={revealed && vibeType ? vibeType.traits[i] : "░░░░░░░"}
+                label={label}
+                subLabel={privacySubLabels[i]}
                 fill={traitFills[i]}
                 color={primaryColor}
                 revealed={revealed}

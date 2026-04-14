@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { Nav } from "@/components/Nav";
 
 export const metadata: Metadata = {
   title: "Proof of Vibe — Your onchain soul. Proven. Hidden.",
@@ -21,7 +22,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <Nav />
+          {children}
+        </Providers>
       </body>
     </html>
   );

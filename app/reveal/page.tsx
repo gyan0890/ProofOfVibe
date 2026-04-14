@@ -1,111 +1,612 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useAccount, useConnect } from "@starknet-react/core";
+import { useAccount } from "@starknet-react/core";
 import { VibeCard } from "@/components/VibeCard";
+import { ConnectModal } from "@/components/ConnectModal";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { generatePersonaName } from "@/lib/utils";
 import { SHARE_TWEET_TEMPLATE } from "@/lib/constants";
-import { loadLocalCard, updateLocalCard } from "@/lib/storage";
+import { loadLocalCard, saveCardLocally, updateLocalCard } from "@/lib/storage";
 import { useMint } from "@/hooks/useMint";
+import { useMyCard } from "@/hooks/useMyCard";
+import { usePrivacyScore, ChainScanStatus } from "@/hooks/usePrivacyScore";
+import { VIBE_TYPES } from "@/lib/vibeTypes";
 
 type RevealStep = "pulse" | "flip" | "aura" | "text" | "actions";
+
+// ── Chain status pill ──────────────────────────────────────────────────────
+
+function ChainPill({ chain }: { chain: ChainScanStatus }) {
+  const colors: Record<ChainScanStatus["status"], string> = {
+    pending: "rgba(255,255,255,0.06)",
+    scanning: "rgba(167,139,250,0.15)",
+    done: "rgba(34,197,94,0.12)",
+    no_activity: "rgba(255,255,255,0.04)",
+  };
+  const textColors: Record<ChainScanStatus["status"], string> = {
+    pending: "rgba(255,255,255,0.25)",
+    scanning: "rgba(167,139,250,0.9)",
+    done: "rgba(34,197,94,0.9)",
+    no_activity: "rgba(255,255,255,0.2)",
+  };
+  const icon =
+    chain.status === "done"
+      ? "✓"
+      : chain.status === "no_activity"
+      ? "–"
+      : chain.status === "scanning"
+      ? "⟳"
+      : "·";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-card"
+      style={{
+        background: colors[chain.status],
+        border: `1px solid ${textColors[chain.status]}33`,
+        color: textColors[chain.status],
+      }}
+    >
+      <motion.span
+        animate={chain.status === "scanning" ? { rotate: 360 } : {}}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        style={{ display: "inline-block" }}
+      >
+        {icon}
+      </motion.span>
+      {chain.name}
+    </motion.div>
+  );
+}
+
+// ── Privacy score bar ──────────────────────────────────────────────────────
+
+function ScoreBar({
+  label,
+  score,
+  color,
+}: {
+  label: string;
+  score: number;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 w-full">
+      <span className="text-xs font-card text-white/50 w-28 shrink-0">
+        {label}
+      </span>
+      <div
+        className="flex-1 h-1.5 rounded-full"
+        style={{ background: "rgba(255,255,255,0.06)" }}
+      >
+        <motion.div
+          className="h-1.5 rounded-full"
+          style={{ background: color }}
+          initial={{ width: "0%" }}
+          animate={{ width: `${score}%` }}
+          transition={{ duration: 1, ease: "easeOut" }}
+        />
+      </div>
+      <span className="text-xs font-ui text-white/30 w-8 text-right">
+        {score}
+      </span>
+    </div>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
 
 export default function RevealPage() {
   const [step, setStep] = useState<RevealStep>("pulse");
   const [card, setCard] = useState<CardData | null>(null);
   const { address } = useAccount();
-  const { connect, connectors } = useConnect();
-  const { mint, minting } = useMint();
+  const { mint, minting, txHash, error: mintError } = useMint();
+  const { card: onchainCard, loading: onchainLoading } = useMyCard();
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const animationStarted = useRef(false);
 
+  // Privacy scan state
+  const {
+    scanning,
+    chainStatuses,
+    profile: scanProfile,
+    vibeType: scanVibeType,
+    error: scanError,
+    scan,
+    reset: resetScan,
+  } = usePrivacyScore();
+  const [showingScan, setShowingScan] = useState(false);
+  // The address to scan — defaults to connected wallet, but user can type any address
+  const [scanInputAddress, setScanInputAddress] = useState("");
+
+  // Sync input with connected wallet whenever wallet changes
   useEffect(() => {
-    // Load from localStorage first, fallback to sessionStorage
+    if (address && !scanInputAddress) setScanInputAddress(address);
+  }, [address]);
+
+  function startAnimation() {
+    if (animationStarted.current) return;
+    animationStarted.current = true;
+    const timings: [RevealStep, number][] = [
+      ["flip", 1500],
+      ["aura", 2300],
+      ["text", 2900],
+      ["actions", 3300],
+    ];
+    timings.forEach(([s, t]) => setTimeout(() => setStep(s), t));
+  }
+
+  // ── Mount: check for existing card ──────────────────────────────────────
+  useEffect(() => {
     const local = loadLocalCard();
     if (local) {
       setCard(local);
-    } else {
-      const vibeType = sessionStorage.getItem("quizVibeType");
-      const personaName = sessionStorage.getItem("personaName") ?? generatePersonaName();
+      startAnimation();
+      return;
+    }
+
+    const vibeType = sessionStorage.getItem("quizVibeType");
+    if (vibeType !== null) {
+      const idx = parseInt(vibeType) as VibeTypeIndex;
+      const personaName =
+        sessionStorage.getItem("personaName") ?? generatePersonaName();
       const isAnchored = sessionStorage.getItem("isAnchored") === "true";
       const owner = sessionStorage.getItem("walletAddress") ?? "unanchored";
-      setCard({
+
+      // Try to load the full privacy profile written by the quiz page
+      let privacyProfile: import("@/lib/types").PrivacyProfile | undefined;
+      const rawProfile = sessionStorage.getItem("quizPrivacyProfile");
+      if (rawProfile) {
+        try { privacyProfile = JSON.parse(rawProfile); } catch { /* ignore */ }
+      }
+
+      // Publicly visible first trait: use identity label if available
+      const firstTrait = privacyProfile?.identityLabel ?? VIBE_TYPES[idx]?.traits[0] ?? "unknown";
+
+      const newCard: CardData = {
         id: `session-${Date.now()}`,
         owner,
         commitment: "0x0",
-        revealedType: vibeType !== null ? (parseInt(vibeType) as VibeTypeIndex) : undefined,
-        paletteRevealed: false,
+        revealedType: idx,
+        paletteRevealed: true,
         mintTimestamp: Date.now(),
         personaName,
         isAnchored,
         battleRecord: { wins: 0, losses: 0, total: 0 },
-        traitReveal: { barFillsAccurate: false, paletteRevealed: false, typeRevealed: false, lossCount: 0 },
+        traitReveal: {
+          barFillsAccurate: false,
+          paletteRevealed: true,  // colour visible from creation
+          typeRevealed: false,    // name stays hidden
+          lossCount: 0,
+          trait1Word: firstTrait, // identity dimension publicly shown
+        },
         recentBattles: [],
-      });
-    }
-
-    const timings: [RevealStep, number][] = [
-      ["flip", 1500], ["aura", 2300], ["text", 2900], ["actions", 3300],
-    ];
-    const timeouts = timings.map(([s, t]) => setTimeout(() => setStep(s), t));
-    return () => timeouts.forEach(clearTimeout);
-  }, []);
-
-  // When wallet connects after clicking "Lock in", update card
-  useEffect(() => {
-    if (address && card && !card.isAnchored) {
-      updateLocalCard({ owner: address });
-      setCard((c) => c ? { ...c, owner: address } : c);
-    }
-  }, [address]);
-
-  async function handleLockIn() {
-    if (!address) {
-      const cartridge = connectors.find((c) => c.id === "cartridge");
-      if (cartridge) await connect({ connector: cartridge });
+        privacyProfile,
+      };
+      setCard(newCard);
+      saveCardLocally(newCard);
+      startAnimation();
       return;
     }
-    if (!card?.revealedType === undefined) return;
-    await mint(card!.revealedType as VibeTypeIndex, card?.personaName);
-    setCard((c) => c ? { ...c, isAnchored: true, owner: address } : c);
+  }, []);
+
+  // ── Privacy scan result → build card ────────────────────────────────────
+  useEffect(() => {
+    if (!scanProfile || scanVibeType === null) return;
+
+    const personaName =
+      scanProfile.ensName ??
+      sessionStorage.getItem("personaName") ??
+      generatePersonaName();
+    const owner = address ?? scanProfile.scannedAddress;
+
+    const newCard: CardData = {
+      id: `scan-${Date.now()}`,
+      owner,
+      commitment: "0x0",
+      revealedType: scanVibeType,
+      paletteRevealed: true,
+      mintTimestamp: Date.now(),
+      personaName,
+      isAnchored: false,
+      battleRecord: { wins: 0, losses: 0, total: 0 },
+      traitReveal: {
+        barFillsAccurate: false,
+        paletteRevealed: true,               // colour visible from creation
+        typeRevealed: false,                  // name stays hidden
+        lossCount: 0,
+        trait1Word: scanProfile.identityLabel, // identity is the publicly shown trait
+        // trait2Word, trait3 stay hidden until battle losses reveal them
+      },
+      recentBattles: [],
+      privacyProfile: scanProfile,
+    };
+
+    setCard(newCard);
+    saveCardLocally(newCard);
+    sessionStorage.setItem("privacyScanDone", "1");
+    setShowingScan(false);
+    startAnimation();
+  }, [scanProfile, scanVibeType]);
+
+  // ── Onchain card loads ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!onchainCard) return;
+    const isNewCard = !card || !card.isAnchored;
+    if (isNewCard) {
+      setCard(onchainCard);
+      setStep("actions");
+      animationStarted.current = true;
+    }
+  }, [onchainCard]);
+
+  // ── Wallet connects mid-flow ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!address || !card || card.isAnchored || onchainCard) return;
+    updateLocalCard({ owner: address });
+    setCard((c) => (c ? { ...c, owner: address } : c));
+    if (!scanInputAddress) setScanInputAddress(address);
+  }, [address]);
+
+  // ── Mint handler ─────────────────────────────────────────────────────────
+  async function handleLockIn() {
+    if (!address) {
+      setShowConnectModal(true);
+      return;
+    }
+    if (card?.revealedType === undefined) return;
+    await mint(card.revealedType as VibeTypeIndex, card.personaName);
+    setCard((c) => (c ? { ...c, isAnchored: true, owner: address } : c));
   }
 
-  if (!card) return null;
+  // ── Start privacy scan ───────────────────────────────────────────────────
+  function handleStartScan() {
+    const target = scanInputAddress.trim();
+    if (!target) return;
+    setShowingScan(true);
+    scan(target);
+  }
 
-  const cardUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/card/${card.id}`
-    : "";
+  // ── No card yet — show options or scanning ───────────────────────────────
+  if (!card) {
+    return (
+      <div className="min-h-screen bg-[#080810] flex flex-col items-center justify-center px-6 py-12">
+        <ConnectModal
+          open={showConnectModal}
+          onClose={() => setShowConnectModal(false)}
+        />
+
+        <AnimatePresence mode="wait">
+          {/* ── Scanning in progress ───────────────────────────────────── */}
+          {showingScan && (
+            <motion.div
+              key="scanning"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="w-full max-w-sm flex flex-col gap-6"
+            >
+              <div className="text-center">
+                <motion.div
+                  className="w-10 h-10 rounded-full mx-auto mb-4"
+                  style={{ background: "rgba(127,119,221,0.3)" }}
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 1.2, repeat: Infinity }}
+                />
+                <p className="font-card text-white text-base mb-1">
+                  {scanning
+                    ? "Reading wallet history…"
+                    : scanError
+                    ? "Scan failed"
+                    : "Scan complete"}
+                </p>
+                <p className="text-white/30 text-xs font-ui font-mono truncate max-w-[260px] mx-auto">
+                  {scanInputAddress.slice(0, 12)}…{scanInputAddress.slice(-8)}
+                </p>
+              </div>
+
+              {/* Chain pills */}
+              {chainStatuses.length > 0 && (
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {chainStatuses.map((c) => (
+                    <ChainPill key={c.chainId} chain={c} />
+                  ))}
+                </div>
+              )}
+
+              {scanError && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-red-400 text-xs font-ui text-center">
+                    {scanError}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      resetScan();
+                      setShowingScan(false);
+                    }}
+                    className="min-touch w-full p-3 rounded-xl font-card text-sm text-white/60 text-center"
+                    style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                  >
+                    ← Go back
+                  </motion.button>
+                </div>
+              )}
+
+              {scanning && (
+                <button
+                  onClick={() => {
+                    resetScan();
+                    setShowingScan(false);
+                  }}
+                  className="text-white/20 text-xs font-ui text-center hover:text-white/40 transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── Options view ───────────────────────────────────────────── */}
+          {!showingScan && (
+            <motion.div
+              key="options"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="w-full max-w-sm flex flex-col gap-4"
+            >
+              {address && onchainLoading ? (
+                <div className="flex flex-col items-center gap-4 py-8">
+                  <motion.div
+                    className="w-10 h-10 rounded-full bg-violet-500/30"
+                    animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  />
+                  <p className="text-white/30 font-card text-sm tracking-widest uppercase">
+                    Looking up your card…
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* ── Option A: Scan any wallet ─────────────────────── */}
+                  <div
+                    className="p-4 rounded-2xl flex flex-col gap-3"
+                    style={{
+                      background: "rgba(127,119,221,0.07)",
+                      border: "1px solid rgba(127,119,221,0.22)",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🔍</span>
+                      <div>
+                        <p className="font-card font-medium text-white text-sm">
+                          Analyze wallet history
+                        </p>
+                        <p className="text-white/40 text-xs font-ui mt-0.5">
+                          EVM · Solana · Starknet · ENS names accepted
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Address input */}
+                    <input
+                      type="text"
+                      value={scanInputAddress}
+                      onChange={(e) => setScanInputAddress(e.target.value)}
+                      placeholder="0x… or yourname.eth or Solana address"
+                      className="w-full px-3 py-2.5 rounded-xl text-xs font-mono text-white/80 outline-none transition-colors"
+                      style={{
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        caretColor: "#a78bfa",
+                      }}
+                      onFocus={(e) =>
+                        (e.target.style.borderColor = "rgba(127,119,221,0.5)")
+                      }
+                      onBlur={(e) =>
+                        (e.target.style.borderColor = "rgba(255,255,255,0.1)")
+                      }
+                    />
+
+                    <motion.button
+                      whileHover={{ scale: scanInputAddress.trim() ? 1.02 : 1 }}
+                      whileTap={{ scale: scanInputAddress.trim() ? 0.97 : 1 }}
+                      onClick={handleStartScan}
+                      disabled={!scanInputAddress.trim()}
+                      className="w-full py-2.5 rounded-xl font-card text-sm font-medium transition-all disabled:opacity-40"
+                      style={{
+                        background: "linear-gradient(135deg, #a78bfa, #7F77DD)",
+                        color: "#080810",
+                      }}
+                    >
+                      Scan this wallet →
+                    </motion.button>
+
+                    {!address && (
+                      <p className="text-[10px] text-white/25 font-ui text-center">
+                        You can scan any wallet.{" "}
+                        <button
+                          onClick={() => setShowConnectModal(true)}
+                          className="text-violet-400/70 hover:text-violet-400 underline underline-offset-2 transition-colors"
+                        >
+                          Connect Starknet wallet
+                        </button>{" "}
+                        to mint your card onchain.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ── Option B: Take quiz ───────────────────────────── */}
+                  <Link href="/quiz">
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="min-touch w-full p-4 rounded-2xl text-left flex items-center gap-4 cursor-pointer"
+                      style={{
+                        background: "rgba(212,83,126,0.06)",
+                        border: "1px solid rgba(212,83,126,0.2)",
+                      }}
+                    >
+                      <span className="text-2xl">✨</span>
+                      <div>
+                        <p className="font-card font-medium text-white text-sm">
+                          Take the quiz instead
+                        </p>
+                        <p className="text-white/40 text-xs font-ui mt-0.5">
+                          5 questions · answer-based Vibe · seal onchain anytime
+                        </p>
+                      </div>
+                    </motion.div>
+                  </Link>
+
+                  {/* ── Option C: Retrieve existing card ─────────────── */}
+                  {!address && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setShowConnectModal(true)}
+                      className="min-touch w-full p-4 rounded-2xl text-left flex items-center gap-4"
+                      style={{
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    >
+                      <span className="text-2xl">🔗</span>
+                      <div>
+                        <p className="font-card font-medium text-white text-sm">
+                          Connect Starknet wallet
+                        </p>
+                        <p className="text-white/40 text-xs font-ui mt-0.5">
+                          Retrieve an existing minted card from Sepolia
+                        </p>
+                      </div>
+                    </motion.button>
+                  )}
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ── Card exists — show reveal animation + actions ─────────────────────────
+
+  const cardUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/card/${card.id}`
+      : "";
+
+  const hasPrivacy = !!card.privacyProfile;
 
   return (
     <div className="min-h-screen bg-[#080810] flex flex-col items-center justify-center px-6 py-12">
+      <ConnectModal
+        open={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+      />
+
       <AnimatePresence mode="wait">
         {step === "pulse" && (
-          <motion.div key="pulse" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="flex flex-col items-center gap-4">
-            <motion.div className="w-12 h-12 rounded-full bg-violet-500/30"
+          <motion.div
+            key="pulse"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <motion.div
+              className="w-12 h-12 rounded-full bg-violet-500/30"
               animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1, repeat: Infinity }} />
-            <p className="text-white/30 font-card text-sm tracking-widest uppercase">Sealing your vibe...</p>
+              transition={{ duration: 1, repeat: Infinity }}
+            />
+            <p className="text-white/30 font-card text-sm tracking-widest uppercase">
+              {hasPrivacy ? "Sealing your footprint…" : "Sealing your vibe…"}
+            </p>
           </motion.div>
         )}
 
         {step !== "pulse" && (
-          <motion.div key="card-reveal" className="flex flex-col items-center gap-8 w-full max-w-xs">
-            <motion.div initial={{ opacity: 0, rotateY: 90 }} animate={{ opacity: 1, rotateY: 0 }}
-              transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }} style={{ perspective: 800 }}>
+          <motion.div
+            key="card-reveal"
+            className="flex flex-col items-center gap-8 w-full max-w-xs"
+          >
+            <motion.div
+              initial={{ opacity: 0, rotateY: 90 }}
+              animate={{ opacity: 1, rotateY: 0 }}
+              transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+              style={{ perspective: 800 }}
+            >
               <VibeCard card={card} interactive={true} size="md" />
             </motion.div>
 
             <AnimatePresence>
               {(step === "text" || step === "actions") && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }} className="text-center">
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="text-center"
+                >
                   <p className="font-card text-xl text-white mb-1">
-                    Your vibe is... <span className="text-white/40">🔒 HIDDEN</span>
+                    One trait visible.{" "}
+                    <span className="text-white/40">The rest? 🔒</span>
                   </p>
                   <p className="text-white/40 text-sm font-ui">
-                    Battle others to stay mysterious. Lose and they extract fragments.
+                    {hasPrivacy
+                      ? "Your identity hint is public. Battle to protect what's left."
+                      : "Your first trait is public. Battle to stay mysterious."}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Privacy score summary */}
+            <AnimatePresence>
+              {step === "actions" && hasPrivacy && card.privacyProfile && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                  className="w-full p-4 rounded-2xl flex flex-col gap-3"
+                  style={{
+                    background: "rgba(127,119,221,0.06)",
+                    border: "1px solid rgba(127,119,221,0.15)",
+                  }}
+                >
+                  <p className="text-xs font-card text-white/40 tracking-widest uppercase">
+                    Privacy Exposure
+                  </p>
+                  <ScoreBar
+                    label="Identity"
+                    score={card.privacyProfile.identityLeakage}
+                    color="#a78bfa"
+                  />
+                  <ScoreBar
+                    label="Geographic"
+                    score={card.privacyProfile.geographicSignal}
+                    color="#7F77DD"
+                  />
+                  <ScoreBar
+                    label="Financial"
+                    score={card.privacyProfile.financialProfile}
+                    color="#D4537E"
+                  />
+                  <ScoreBar
+                    label="Behavioral"
+                    score={card.privacyProfile.behavioralFingerprint}
+                    color="#1D9E75"
+                  />
+                  <p className="text-[10px] font-ui text-white/20 mt-1">
+                    These scores are sealed in your card. Opponents uncover them by winning battles.
                   </p>
                 </motion.div>
               )}
@@ -113,10 +614,13 @@ export default function RevealPage() {
 
             <AnimatePresence>
               {step === "actions" && (
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }} className="flex flex-col gap-3 w-full">
-
-                  {/* Lock in CTA — only for unanchored cards */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="flex flex-col gap-3 w-full"
+                >
+                  {/* Lock-in CTA */}
                   {!card.isAnchored && (
                     <motion.button
                       onClick={handleLockIn}
@@ -124,33 +628,77 @@ export default function RevealPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.97 }}
                       className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-[#080810] font-medium transition-all disabled:opacity-50"
-                      style={{ background: "linear-gradient(135deg, #a78bfa, #7F77DD)" }}
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #a78bfa, #7F77DD)",
+                      }}
                     >
-                      {minting ? "Minting..." : !address ? "🔗 Lock in your vibe onchain" : "⚡ Mint to Starknet"}
+                      {minting
+                        ? "Minting…"
+                        : !address
+                        ? "🔗 Connect Starknet wallet to mint"
+                        : "⚡ Mint to Starknet"}
                     </motion.button>
                   )}
 
                   {card.isAnchored && (
-                    <div className="flex items-center justify-center gap-2 text-xs font-ui py-2"
-                      style={{ color: "#22c55e" }}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                      Sealed onchain · Sepolia
+                    <div className="flex flex-col items-center gap-1">
+                      <div
+                        className="flex items-center justify-center gap-2 text-xs font-ui py-1"
+                        style={{ color: "#22c55e" }}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        Sealed onchain · Sepolia
+                      </div>
+                      {txHash && (
+                        <a
+                          href={`https://sepolia.voyager.online/tx/${txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-ui text-white/30 hover:text-white/60 transition-colors"
+                        >
+                          View tx on Voyager ↗
+                        </a>
+                      )}
                     </div>
                   )}
 
-                  <a href={`https://x.com/intent/tweet?text=${encodeURIComponent(SHARE_TWEET_TEMPLATE(cardUrl))}`}
-                    target="_blank" rel="noopener noreferrer"
+                  {mintError && !card.isAnchored && (
+                    <p className="text-xs text-red-400 font-ui text-center px-2">
+                      {mintError}
+                    </p>
+                  )}
+
+                  <a
+                    href={`https://x.com/intent/tweet?text=${encodeURIComponent(
+                      SHARE_TWEET_TEMPLATE(cardUrl)
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
-                    style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                    style={{
+                      background: "rgba(255,255,255,0.08)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                    }}
+                  >
                     𝕏 Share on X
                   </a>
-                  <Link href="/leaderboard"
+
+                  <Link
+                    href="/leaderboard"
                     className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
-                    style={{ background: "rgba(127,119,221,0.15)", border: "1px solid rgba(127,119,221,0.3)" }}>
+                    style={{
+                      background: "rgba(127,119,221,0.15)",
+                      border: "1px solid rgba(127,119,221,0.3)",
+                    }}
+                  >
                     ⚔️ Find someone to battle
                   </Link>
-                  <Link href={`/card/${card.id}`}
-                    className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white/60 transition-all hover:text-white">
+
+                  <Link
+                    href={`/card/${card.id}`}
+                    className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white/60 transition-all hover:text-white"
+                  >
                     View my card →
                   </Link>
                 </motion.div>

@@ -3,31 +3,162 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useProvider, useAccount } from "@starknet-react/core";
+import { Contract, shortString } from "starknet";
 import { VibeCard } from "@/components/VibeCard";
 import { LEADERBOARD_MOCK_CARDS, DEMO_CARDS } from "@/demo/mockData";
-import { CardData } from "@/lib/types";
+import { CardData, VibeTypeIndex } from "@/lib/types";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
+import { CONTRACT_ADDRESSES } from "@/lib/constants";
+import { loadLocalCard } from "@/lib/storage";
+
+const VIBECARD_READ_ABI = [
+  {
+    type: "struct",
+    name: "vibe_card::CardData",
+    members: [
+      { name: "owner", type: "core::starknet::contract_address::ContractAddress" },
+      { name: "commitment", type: "core::felt252" },
+      { name: "ipfs_cid", type: "core::felt252" },
+      { name: "revealed_type", type: "core::integer::u8" },
+      { name: "palette_revealed", type: "core::bool" },
+      { name: "mint_timestamp", type: "core::integer::u64" },
+      { name: "persona_name", type: "core::felt252" },
+    ],
+  },
+  {
+    type: "struct",
+    name: "vibe_card::TraitRevealState",
+    members: [
+      { name: "trait_1_word", type: "core::felt252" },
+      { name: "trait_2_word", type: "core::felt252" },
+      { name: "bar_fills_accurate", type: "core::bool" },
+      { name: "palette_revealed", type: "core::bool" },
+      { name: "type_revealed", type: "core::bool" },
+    ],
+  },
+  {
+    type: "function",
+    name: "get_card",
+    inputs: [{ name: "token_id", type: "core::integer::u256" }],
+    outputs: [{ type: "vibe_card::CardData" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_trait_state",
+    inputs: [{ name: "token_id", type: "core::integer::u256" }],
+    outputs: [{ type: "vibe_card::TraitRevealState" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_battle_losses",
+    inputs: [{ name: "token_id", type: "core::integer::u256" }],
+    outputs: [{ type: "core::integer::u8" }],
+    state_mutability: "view",
+  },
+] as const;
+
+/** Extract a token ID from card IDs of form "${address}-${tokenId}" */
+function parseTokenId(id: string): number | null {
+  if (id.startsWith("session-")) return null;
+  const parts = id.split("-");
+  if (parts.length < 2) return null;
+  const last = Number(parts[parts.length - 1]);
+  // Valid onchain token IDs are small positive integers
+  if (Number.isInteger(last) && last > 0 && last < 1_000_000) return last;
+  return null;
+}
 
 export default function CardPage({ params }: { params: { id: string } }) {
   const [card, setCard] = useState<CardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { provider } = useProvider();
+  const { address } = useAccount();
   const [guessDistribution] = useState(() =>
     VIBE_TYPES.map((t) => ({ type: t, count: Math.floor(Math.random() * 30) }))
   );
 
   useEffect(() => {
-    const found = LEADERBOARD_MOCK_CARDS.find((c) => c.id === params.id);
-    if (found) {
-      setCard(found);
-    } else {
-      // fallback: first demo card
-      setCard(DEMO_CARDS[0]);
-    }
-  }, [params.id]);
+    async function loadCard() {
+      setLoading(true);
 
-  if (!card) {
+      // 1. Check mock data (demo cards)
+      const mock = LEADERBOARD_MOCK_CARDS.find((c) => c.id === params.id);
+      if (mock) { setCard(mock); setLoading(false); return; }
+
+      // 2. Check localStorage (user's own card)
+      const local = loadLocalCard();
+      if (local && local.id === params.id) { setCard(local); setLoading(false); return; }
+
+      // 3. Try fetching from chain by token ID
+      const tokenId = parseTokenId(params.id);
+      if (tokenId !== null && provider) {
+        try {
+          const contract = new Contract({
+            abi: VIBECARD_READ_ABI as any,
+            address: CONTRACT_ADDRESSES.vibeCard,
+            providerOrAccount: provider,
+          });
+
+          const [raw, traitRaw, lossesRaw] = await Promise.all([
+            contract.get_card({ low: tokenId, high: 0 }),
+            contract.get_trait_state({ low: tokenId, high: 0 }),
+            contract.get_battle_losses({ low: tokenId, high: 0 }),
+          ]);
+
+          const owner: string = raw.owner?.toString() ?? "0x0";
+          const revealed = Number(raw.revealed_type);
+          const losses = Number(lossesRaw);
+
+          const personaName = (() => {
+            try { return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0"); }
+            catch { return `Vibe #${tokenId}`; }
+          })();
+
+          const onchainCard: CardData = {
+            id: params.id,
+            owner,
+            commitment: raw.commitment?.toString() ?? "0x0",
+            revealedType: revealed !== 255 ? (revealed as VibeTypeIndex) : undefined,
+            paletteRevealed: Boolean(raw.palette_revealed),
+            mintTimestamp: Number(raw.mint_timestamp) * 1000,
+            personaName,
+            isAnchored: true,
+            battleRecord: { wins: 0, losses, total: losses },
+            traitReveal: {
+              barFillsAccurate: Boolean(traitRaw.bar_fills_accurate),
+              paletteRevealed: Boolean(traitRaw.palette_revealed),
+              typeRevealed: Boolean(traitRaw.type_revealed),
+              lossCount: losses,
+            },
+            recentBattles: [],
+          };
+          setCard(onchainCard);
+          setLoading(false);
+          return;
+        } catch (e) {
+          console.error("CardPage: chain fetch failed for token", tokenId, e);
+        }
+      }
+
+      // 4. Fallback
+      setCard(DEMO_CARDS[0]);
+      setLoading(false);
+    }
+
+    loadCard();
+  }, [params.id, provider]);
+
+  if (loading || !card) {
     return (
       <div className="min-h-screen bg-[#080810] flex items-center justify-center">
-        <div className="w-[320px] h-[480px] rounded-[20px] animate-shimmer" />
+        <motion.div
+          className="w-8 h-8 rounded-full bg-violet-500/30"
+          animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1, repeat: Infinity }}
+        />
       </div>
     );
   }
@@ -46,7 +177,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
       }}
     >
       <div className="max-w-5xl mx-auto w-full px-6 py-12">
-        <Link href="/" className="text-white/30 hover:text-white/60 transition-colors text-sm font-ui mb-8 inline-block">
+        <Link href="/leaderboard" className="text-white/30 hover:text-white/60 transition-colors text-sm font-ui mb-8 inline-block">
           ← Back
         </Link>
 
@@ -73,10 +204,18 @@ export default function CardPage({ params }: { params: { id: string } }) {
               <h1 className="font-card text-2xl font-medium text-white mb-1">
                 {card.personaName}
               </h1>
-              <p className="text-white/40 text-sm font-ui">
-                {card.isAnchored ? `${card.owner}` : "Unanchored card"}
+              <p className="text-white/40 text-sm font-ui truncate">
+                {card.isAnchored ? card.owner : "Unanchored card"}
               </p>
             </div>
+
+            {/* Onchain badge */}
+            {card.isAnchored && (
+              <div className="flex items-center gap-2 text-xs font-ui" style={{ color: "#22c55e" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                Sealed onchain · Sepolia
+              </div>
+            )}
 
             {/* Status */}
             {card.traitReveal.typeRevealed && card.revealedType !== undefined ? (
@@ -92,7 +231,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
             ) : (
               <div className="px-4 py-3 rounded-xl bg-white/3 border border-white/6">
                 <p className="text-xs text-white/40 font-ui mb-1">Status</p>
-                <p className="font-card font-medium text-white/60">🔒 Hidden</p>
+                <p className="font-card font-medium text-white/60">🔒 Hidden · {card.traitReveal.lossCount} losses so far</p>
               </div>
             )}
 
@@ -125,14 +264,50 @@ export default function CardPage({ params }: { params: { id: string } }) {
               <p className="text-xs text-white/20 font-ui mt-3">{totalGuesses} community reads</p>
             </div>
 
-            {/* Battle CTA */}
-            <Link
-              href={`/battle/${card.id}`}
-              className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
-              style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)" }}
-            >
-              ⚔️ Battle this card
-            </Link>
+            {/* Battle CTA — show only when this is NOT the current user's own card */}
+            {(() => {
+              const localCard = loadLocalCard();
+              const isOwnCard =
+                (address && card.owner &&
+                  card.owner.toLowerCase() === address.toLowerCase()) ||
+                (localCard && localCard.id === params.id);
+
+              if (isOwnCard) {
+                return (
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      href="/leaderboard"
+                      className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
+                      style={{
+                        background: "rgba(127,119,221,0.12)",
+                        border: "1px solid rgba(127,119,221,0.28)",
+                      }}
+                    >
+                      ⚔️ Find an opponent to battle
+                    </Link>
+                    <Link
+                      href="/reveal"
+                      className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white/50 transition-all hover:text-white"
+                    >
+                      ← Back to my card
+                    </Link>
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  href={`/battle/${params.id}`}
+                  className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
+                  style={{
+                    background: "rgba(239,68,68,0.12)",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                  }}
+                >
+                  ⚔️ Battle this card
+                </Link>
+              );
+            })()}
 
             {/* Recent battles */}
             {card.recentBattles.length > 0 && (

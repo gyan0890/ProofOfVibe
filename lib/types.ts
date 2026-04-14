@@ -23,6 +23,8 @@ export interface CardData {
   battleRecord: { wins: number; losses: number; total: number };
   traitReveal: TraitRevealState;
   recentBattles: BattleResult[];
+  /** Present when card was created from a wallet privacy scan */
+  privacyProfile?: PrivacyProfile;
 }
 
 export interface TraitRevealState {
@@ -59,3 +61,32 @@ export interface QuizAnswer {
 }
 
 export type RevealSource = "owner" | "battle" | "season_end";
+
+/**
+ * Privacy profile computed from Exposed.wtf wallet scan.
+ * Stored locally alongside the card; dimensions revealed progressively through battles.
+ */
+export interface PrivacyProfile {
+  /** 0–100: higher = more identity info publicly linked */
+  identityLeakage: number;
+  /** 0–100: higher = geographic origin more determinable */
+  geographicSignal: number;
+  /** 0–100: higher = financial picture more visible */
+  financialProfile: number;
+  /** 0–100: higher = on-chain behaviour more traceable */
+  behavioralFingerprint: number;
+
+  /** Short label revealed after 1st battle loss */
+  identityLabel: string;
+  /** Short label revealed after 2nd battle loss */
+  geographicLabel: string;
+  /** Short label revealed after 3rd battle loss */
+  financialLabel: string;
+  /** Short label revealed after 5th battle loss */
+  behavioralLabel: string;
+
+  ensName?: string;
+  scannedAddress: string;
+  scanTimestamp: number;
+  totalTransactions: number;
+}

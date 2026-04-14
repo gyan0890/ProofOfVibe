@@ -38,7 +38,8 @@ export function generatePersonaName(): string {
 }
 
 export function generateSalt(): string {
-  const array = new Uint8Array(32);
+  // 31 bytes = 248 bits, guaranteed below Stark curve prime (~252 bits)
+  const array = new Uint8Array(31);
   crypto.getRandomValues(array);
   return Array.from(array)
     .map((b) => b.toString(16).padStart(2, "0"))

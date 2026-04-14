@@ -8,6 +8,7 @@ import { CardData } from "@/lib/types";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 import { revealPercent } from "@/lib/utils";
 import { VibeCard } from "@/components/VibeCard";
+import { useOnchainCards } from "@/hooks/useOnchainCards";
 
 type Tab = "wanted" | "mysterious" | "readers" | "kings";
 
@@ -45,6 +46,11 @@ function CardRow({ card, rank, metric }: { card: CardData; rank: number; metric:
 
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>("wanted");
+  const { cards: onchainCards, loading, error } = useOnchainCards(50);
+
+  // Use onchain data if available, fall back to mock data
+  const allCards = onchainCards.length > 0 ? onchainCards : LEADERBOARD_MOCK_CARDS;
+  const isLive = onchainCards.length > 0;
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "wanted", label: "Most Wanted" },
@@ -54,10 +60,10 @@ export default function LeaderboardPage() {
   ];
 
   const sorted = {
-    wanted: [...LEADERBOARD_MOCK_CARDS].sort((a, b) => b.battleRecord.total - a.battleRecord.total),
-    mysterious: [...LEADERBOARD_MOCK_CARDS].filter((c) => !c.traitReveal.typeRevealed).sort((a, b) => a.traitReveal.lossCount - b.traitReveal.lossCount),
-    readers: [...LEADERBOARD_MOCK_CARDS].sort((a, b) => b.battleRecord.wins - a.battleRecord.wins),
-    kings: [...LEADERBOARD_MOCK_CARDS].sort((a, b) => b.battleRecord.wins - a.battleRecord.wins),
+    wanted: [...allCards].sort((a, b) => b.battleRecord.total - a.battleRecord.total),
+    mysterious: [...allCards].filter((c) => !c.traitReveal.typeRevealed).sort((a, b) => a.traitReveal.lossCount - b.traitReveal.lossCount),
+    readers: [...allCards].sort((a, b) => b.battleRecord.wins - a.battleRecord.wins),
+    kings: [...allCards].sort((a, b) => b.battleRecord.wins - a.battleRecord.wins),
   };
 
   const metricFn: Record<Tab, (c: CardData) => string> = {
@@ -78,8 +84,14 @@ export default function LeaderboardPage() {
             <h1 className="font-card text-3xl font-medium text-white">Leaderboard</h1>
           </div>
           <div className="text-right">
-            <p className="text-xs text-white/30 font-ui">Day 7 of 14</p>
-            <p className="text-xs text-green-400 font-ui mt-0.5">● Live</p>
+            <p className="text-xs text-white/30 font-ui">{onchainCards.length} cards onchain</p>
+            {loading ? (
+              <p className="text-xs text-white/30 font-ui mt-0.5">● Syncing...</p>
+            ) : isLive ? (
+              <p className="text-xs text-green-400 font-ui mt-0.5">● Live · Sepolia</p>
+            ) : (
+              <p className="text-xs text-white/30 font-ui mt-0.5">● Demo data</p>
+            )}
           </div>
         </div>
 
