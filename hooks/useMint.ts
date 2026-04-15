@@ -103,7 +103,16 @@ export function useMint() {
 
         return result;
       } catch (e: any) {
-        setError(e?.message ?? "Mint failed");
+        const msg: string = e?.message ?? "Mint failed";
+        // Cartridge: new account not yet deployed on-chain (needs gas/credits)
+        if (msg.includes("Invalid transaction nonce") || msg.toLowerCase().includes("nonce")) {
+          setError(
+            "Your Cartridge account needs Sepolia ETH to cover gas. " +
+            "Get free ETH at faucet.starknet.io, then try again."
+          );
+        } else {
+          setError(msg);
+        }
         return null;
       } finally {
         setMinting(false);

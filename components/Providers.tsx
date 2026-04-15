@@ -7,15 +7,19 @@ import { ReactNode, useMemo, useState, useEffect } from "react";
 // ControllerConnector is lazy-imported to prevent WASM from loading during SSR
 export function Providers({ children }: { children: ReactNode }) {
   const [ControllerConnector, setControllerConnector] = useState<any>(null);
-  const [FeeSource, setFeeSource] = useState<any>(null);
+  // Store the FeeSource enum directly — NOT wrapped in () => ... (that would
+  // store a getter function, making FeeSource.CREDITS undefined)
+  const [feeSourceEnum, setFeeSourceEnum] = useState<any>(null);
 
   useEffect(() => {
     Promise.all([
       import("@cartridge/connector"),
       import("@cartridge/controller"),
     ]).then(([connectorMod, controllerMod]) => {
+      // Classes must be wrapped to prevent React treating them as reducers
       setControllerConnector(() => connectorMod.ControllerConnector);
-      setFeeSource(() => controllerMod.FeeSource);
+      // Plain enum objects must NOT be wrapped — pass directly
+      setFeeSourceEnum(controllerMod.FeeSource ?? null);
     });
   }, []);
 
@@ -26,11 +30,14 @@ export function Providers({ children }: { children: ReactNode }) {
       process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0";
 
     const cartridge = new ControllerConnector({
-      // Use the configured Starknet RPC — Alchemy Sepolia works correctly here
-      rpcUrl: process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "https://starknet-sepolia.public.blastapi.io",
-      // feeSource: CREDITS lets Cartridge's paymaster cover gas — handles new
-      // account deployment without the user needing Sepolia ETH
-      ...(FeeSource ? { feeSource: FeeSource.CREDITS } : {}),
+      rpcUrl:
+        process.env.NEXT_PUBLIC_STARKNET_RPC_URL ??
+        "https://starknet-sepolia.public.blastapi.io",
+      // FeeSource.CREDITS tells Cartridge to use their paymaster — covers gas
+      // for brand-new accounts that haven't been deployed on-chain yet.
+      ...(feeSourceEnum?.CREDITS != null
+        ? { feeSource: feeSourceEnum.CREDITS }
+        : {}),
       policies: [
         { target: contractAddress, method: "mint" },
         { target: contractAddress, method: "initiate_battle" },
@@ -41,7 +48,7 @@ export function Providers({ children }: { children: ReactNode }) {
       ],
     });
     return [cartridge, argent(), braavos()];
-  }, [ControllerConnector, FeeSource]);
+  }, [ControllerConnector, feeSourceEnum]);
 
   const provider = jsonRpcProvider({
     rpc: () => ({
