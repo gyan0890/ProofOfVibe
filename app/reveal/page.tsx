@@ -58,6 +58,8 @@ function ScoreBar({
 export default function RevealPage() {
   const [step, setStep] = useState<RevealStep>("pulse");
   const [card, setCard] = useState<CardData | null>(null);
+  // Tracks an existing onchain card without auto-showing it
+  const [existingCard, setExistingCard] = useState<CardData | null>(null);
   const { address } = useAccount();
   const { mint, minting, txHash, error: mintError } = useMint();
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
@@ -106,9 +108,16 @@ export default function RevealPage() {
     const freshFromQuiz = !!sessionStorage.getItem("quizVibeType");
     const freshFromScan = !!sessionStorage.getItem("privacyScanDone");
 
-    if (local && (local.isAnchored || freshFromQuiz || freshFromScan)) {
+    if (local && (freshFromQuiz || freshFromScan)) {
+      // Fresh session — show the card immediately
       setCard(local);
       startAnimation();
+      return;
+    }
+
+    if (local && local.isAnchored) {
+      // Anchored card from a previous visit — store as existing, don't skip scan
+      setExistingCard(local);
       return;
     }
 
@@ -204,11 +213,18 @@ export default function RevealPage() {
   // ── Onchain card loads ───────────────────────────────────────────────────
   useEffect(() => {
     if (!onchainCard) return;
-    const isNewCard = !card || !card.isAnchored;
-    if (isNewCard) {
+    const freshFromQuiz = !!sessionStorage.getItem("quizVibeType");
+    const freshFromScan = !!sessionStorage.getItem("privacyScanDone");
+    const freshSession = freshFromQuiz || freshFromScan;
+
+    if (freshSession && (!card || !card.isAnchored)) {
+      // Just completed a scan/quiz and the card got minted — show it
       setCard(onchainCard);
       setStep("actions");
       animationStarted.current = true;
+    } else if (!freshSession) {
+      // Returning user — surface as a link, don't skip the scan flow
+      setExistingCard(onchainCard);
     }
   }, [onchainCard]);
 
