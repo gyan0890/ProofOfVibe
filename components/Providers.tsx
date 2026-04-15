@@ -7,19 +7,11 @@ import { ReactNode, useMemo, useState, useEffect } from "react";
 // ControllerConnector is lazy-imported to prevent WASM from loading during SSR
 export function Providers({ children }: { children: ReactNode }) {
   const [ControllerConnector, setControllerConnector] = useState<any>(null);
-  // Store the FeeSource enum directly — NOT wrapped in () => ... (that would
-  // store a getter function, making FeeSource.CREDITS undefined)
-  const [feeSourceEnum, setFeeSourceEnum] = useState<any>(null);
 
   useEffect(() => {
-    Promise.all([
-      import("@cartridge/connector"),
-      import("@cartridge/controller"),
-    ]).then(([connectorMod, controllerMod]) => {
-      // Classes must be wrapped to prevent React treating them as reducers
-      setControllerConnector(() => connectorMod.ControllerConnector);
-      // Plain enum objects must NOT be wrapped — pass directly
-      setFeeSourceEnum(controllerMod.FeeSource ?? null);
+    import("@cartridge/connector").then((mod) => {
+      // Class must be wrapped so React doesn't treat it as a functional state updater
+      setControllerConnector(() => mod.ControllerConnector);
     });
   }, []);
 
@@ -33,11 +25,10 @@ export function Providers({ children }: { children: ReactNode }) {
       rpcUrl:
         process.env.NEXT_PUBLIC_STARKNET_RPC_URL ??
         "https://starknet-sepolia.public.blastapi.io",
-      // FeeSource.CREDITS tells Cartridge to use their paymaster — covers gas
-      // for brand-new accounts that haven't been deployed on-chain yet.
-      ...(feeSourceEnum?.CREDITS != null
-        ? { feeSource: feeSourceEnum.CREDITS }
-        : {}),
+      // Note: FeeSource.CREDITS is NOT used here — on Sepolia it fails because
+      // Cartridge's CREDITS token has no Ekubo liquidity routes on testnet.
+      // Users need a small amount of Sepolia ETH/STRK in their Cartridge account.
+      // Faucet: https://faucet.starknet.io
       policies: [
         { target: contractAddress, method: "mint" },
         { target: contractAddress, method: "initiate_battle" },
@@ -48,7 +39,7 @@ export function Providers({ children }: { children: ReactNode }) {
       ],
     });
     return [cartridge, argent(), braavos()];
-  }, [ControllerConnector, feeSourceEnum]);
+  }, [ControllerConnector]);
 
   const provider = jsonRpcProvider({
     rpc: () => ({

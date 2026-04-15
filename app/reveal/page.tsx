@@ -694,9 +694,22 @@ export default function RevealPage() {
                   )}
 
                   {mintError && !card.isAnchored && (
-                    <p className="text-xs text-red-400 font-ui text-center px-2">
-                      {mintError}
-                    </p>
+                    <div
+                      className="p-3 rounded-xl text-xs font-ui text-center"
+                      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+                    >
+                      <p className="text-red-400 mb-1">{mintError}</p>
+                      {(mintError.includes("Sepolia ETH") || mintError.includes("nonce")) && (
+                        <a
+                          href="https://faucet.starknet.io"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-violet-400 underline underline-offset-2 hover:text-violet-300 transition-colors"
+                        >
+                          Get free Sepolia ETH/STRK → faucet.starknet.io
+                        </a>
+                      )}
+                    </div>
                   )}
 
                   <a
