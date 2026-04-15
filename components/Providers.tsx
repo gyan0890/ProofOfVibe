@@ -26,8 +26,8 @@ export function Providers({ children }: { children: ReactNode }) {
       process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS ?? "0x0";
 
     const cartridge = new ControllerConnector({
-      // Use Cartridge's own RPC so account deployment + session keys work correctly
-      rpcUrl: "https://api.cartridge.gg/x/starknet/sepolia",
+      // Use the configured Starknet RPC — Alchemy Sepolia works correctly here
+      rpcUrl: process.env.NEXT_PUBLIC_STARKNET_RPC_URL ?? "https://starknet-sepolia.public.blastapi.io",
       // feeSource: CREDITS lets Cartridge's paymaster cover gas — handles new
       // account deployment without the user needing Sepolia ETH
       ...(FeeSource ? { feeSource: FeeSource.CREDITS } : {}),
