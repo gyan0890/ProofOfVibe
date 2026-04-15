@@ -66,7 +66,7 @@ export default function OnboardPage() {
           </motion.button>
 
           {/* New card via quiz */}
-          <Link href="/quiz">
+          <Link href="/reveal">
             <motion.div
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -79,13 +79,13 @@ export default function OnboardPage() {
               <span className="text-3xl mt-0.5">✨</span>
               <div className="flex-1">
                 <p className="font-card font-medium text-white mb-1">
-                  Mint a new card
+                  Reveal your Vibe
                 </p>
                 <p className="text-white/40 text-sm font-ui">
-                  Answer 5 questions. Get your Vibe Type. Seal it onchain and battle to stay hidden.
+                  Scan any EVM, Bitcoin, or Solana wallet to generate your privacy Vibe. Quiz available if you prefer.
                 </p>
                 <p className="text-pink-400 text-xs font-ui mt-2">
-                  No crypto needed to start · Upgrade to onchain anytime
+                  No wallet needed to scan · Mint onchain anytime
                 </p>
               </div>
             </motion.div>
