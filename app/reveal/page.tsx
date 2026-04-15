@@ -115,11 +115,9 @@ export default function RevealPage() {
       return;
     }
 
-    if (local && local.isAnchored) {
-      // Anchored card from a previous visit — store as existing, don't skip scan
-      setExistingCard(local);
-      return;
-    }
+    // Anchored cards are handled by useMyCard (which checks address on chain).
+    // Don't pre-populate existingCard from localStorage here — it would show
+    // the old owner's card to a newly connected different account.
 
     // Stale local card — remove it so the user starts fresh
     if (local && !local.isAnchored) {
@@ -227,6 +225,21 @@ export default function RevealPage() {
       setExistingCard(onchainCard);
     }
   }, [onchainCard]);
+
+  // ── Clear existingCard when a different address connects ───────────────
+  useEffect(() => {
+    if (!existingCard) return;
+    if (!address) {
+      // No wallet connected — clear the existing card hint
+      setExistingCard(null);
+      return;
+    }
+    if (existingCard.owner.toLowerCase() !== address.toLowerCase()) {
+      // Different account connected — this card belongs to someone else
+      setExistingCard(null);
+      clearLocalCard();
+    }
+  }, [address, existingCard]);
 
   // ── Wallet connects mid-flow ─────────────────────────────────────────────
   useEffect(() => {
