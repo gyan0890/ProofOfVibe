@@ -9,7 +9,7 @@ import { ConnectModal } from "@/components/ConnectModal";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { generatePersonaName } from "@/lib/utils";
 import { SHARE_TWEET_TEMPLATE } from "@/lib/constants";
-import { loadLocalCard, saveCardLocally, updateLocalCard } from "@/lib/storage";
+import { loadLocalCard, saveCardLocally, updateLocalCard, clearLocalCard } from "@/lib/storage";
 import { useMint } from "@/hooks/useMint";
 import { useMyCard } from "@/hooks/useMyCard";
 import { usePrivacyScore } from "@/hooks/usePrivacyScore";
@@ -98,10 +98,23 @@ export default function RevealPage() {
   // ── Mount: check for existing card ──────────────────────────────────────
   useEffect(() => {
     const local = loadLocalCard();
-    if (local) {
+
+    // Only auto-load a local card if:
+    //   (a) it was anchored onchain — useMyCard will pick it up, but show it immediately too
+    //   (b) it was just created this session (quiz or scan markers present)
+    // Otherwise the card is stale from a previous visit — clear it and show the scan options.
+    const freshFromQuiz = !!sessionStorage.getItem("quizVibeType");
+    const freshFromScan = !!sessionStorage.getItem("privacyScanDone");
+
+    if (local && (local.isAnchored || freshFromQuiz || freshFromScan)) {
       setCard(local);
       startAnimation();
       return;
+    }
+
+    // Stale local card — remove it so the user starts fresh
+    if (local && !local.isAnchored) {
+      clearLocalCard();
     }
 
     const vibeType = sessionStorage.getItem("quizVibeType");
