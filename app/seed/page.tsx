@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAccount } from "@starknet-react/core";
 import { VibeCard } from "@/components/VibeCard";
 import { ConnectModal } from "@/components/ConnectModal";
-import { usePrivacyScore, ChainScanStatus } from "@/hooks/usePrivacyScore";
+import { usePrivacyScore } from "@/hooks/usePrivacyScore";
 import { useMint } from "@/hooks/useMint";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { generatePersonaName } from "@/lib/utils";
@@ -23,45 +23,6 @@ import { VIBE_TYPES } from "@/lib/vibeTypes";
 
 // ── Chain pill ─────────────────────────────────────────────────────────────
 
-function ChainPill({ chain }: { chain: ChainScanStatus }) {
-  const textColor =
-    chain.status === "done"
-      ? "rgba(34,197,94,0.9)"
-      : chain.status === "scanning"
-      ? "rgba(167,139,250,0.9)"
-      : chain.status === "no_activity"
-      ? "rgba(255,255,255,0.2)"
-      : "rgba(255,255,255,0.3)";
-
-  const icon =
-    chain.status === "done"
-      ? "✓"
-      : chain.status === "no_activity"
-      ? "–"
-      : chain.status === "scanning"
-      ? "⟳"
-      : "·";
-
-  return (
-    <span
-      className="px-2 py-0.5 rounded-full text-[10px] font-card"
-      style={{
-        background: `${textColor}18`,
-        border: `1px solid ${textColor}33`,
-        color: textColor,
-      }}
-    >
-      <motion.span
-        animate={chain.status === "scanning" ? { rotate: 360 } : {}}
-        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        style={{ display: "inline-block", marginRight: 3 }}
-      >
-        {icon}
-      </motion.span>
-      {chain.name}
-    </span>
-  );
-}
 
 // ── Row for each address in the queue ─────────────────────────────────────
 
@@ -86,7 +47,7 @@ export default function SeedPage() {
   const [rowStates, setRowStates] = useState<Record<number, RowState>>({});
 
   // One shared scan hook — runs sequentially
-  const { scanning, chainStatuses, profile, vibeType, error: scanError, scan, reset } =
+  const { scanning, profile, vibeType, error: scanError, scan, reset } =
     usePrivacyScore();
   const { mint, minting, txHash: lastTxHash, error: mintError } = useMint();
 
@@ -341,9 +302,6 @@ export default function SeedPage() {
                         exit={{ height: 0, opacity: 0 }}
                         className="px-5 pb-4 flex flex-wrap gap-1.5"
                       >
-                        {chainStatuses.map((c) => (
-                          <ChainPill key={c.chainId} chain={c} />
-                        ))}
                         {/* If scan finished but profile ready, show review button */}
                         {!scanning && profile && (
                           <button

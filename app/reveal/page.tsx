@@ -12,57 +12,11 @@ import { SHARE_TWEET_TEMPLATE } from "@/lib/constants";
 import { loadLocalCard, saveCardLocally, updateLocalCard } from "@/lib/storage";
 import { useMint } from "@/hooks/useMint";
 import { useMyCard } from "@/hooks/useMyCard";
-import { usePrivacyScore, ChainScanStatus } from "@/hooks/usePrivacyScore";
+import { usePrivacyScore } from "@/hooks/usePrivacyScore";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 
 type RevealStep = "pulse" | "flip" | "aura" | "text" | "actions";
 
-// ── Chain status pill ──────────────────────────────────────────────────────
-
-function ChainPill({ chain }: { chain: ChainScanStatus }) {
-  const colors: Record<ChainScanStatus["status"], string> = {
-    pending: "rgba(255,255,255,0.06)",
-    scanning: "rgba(167,139,250,0.15)",
-    done: "rgba(34,197,94,0.12)",
-    no_activity: "rgba(255,255,255,0.04)",
-  };
-  const textColors: Record<ChainScanStatus["status"], string> = {
-    pending: "rgba(255,255,255,0.25)",
-    scanning: "rgba(167,139,250,0.9)",
-    done: "rgba(34,197,94,0.9)",
-    no_activity: "rgba(255,255,255,0.2)",
-  };
-  const icon =
-    chain.status === "done"
-      ? "✓"
-      : chain.status === "no_activity"
-      ? "–"
-      : chain.status === "scanning"
-      ? "⟳"
-      : "·";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-card"
-      style={{
-        background: colors[chain.status],
-        border: `1px solid ${textColors[chain.status]}33`,
-        color: textColors[chain.status],
-      }}
-    >
-      <motion.span
-        animate={chain.status === "scanning" ? { rotate: 360 } : {}}
-        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        style={{ display: "inline-block" }}
-      >
-        {icon}
-      </motion.span>
-      {chain.name}
-    </motion.div>
-  );
-}
 
 // ── Privacy score bar ──────────────────────────────────────────────────────
 
@@ -113,7 +67,6 @@ export default function RevealPage() {
   // Privacy scan state
   const {
     scanning,
-    chainStatuses,
     profile: scanProfile,
     vibeType: scanVibeType,
     error: scanError,
@@ -309,15 +262,6 @@ export default function RevealPage() {
                   {scanInputAddress.slice(0, 12)}…{scanInputAddress.slice(-8)}
                 </p>
               </div>
-
-              {/* Chain pills */}
-              {chainStatuses.length > 0 && (
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {chainStatuses.map((c) => (
-                    <ChainPill key={c.chainId} chain={c} />
-                  ))}
-                </div>
-              )}
 
               {scanError && (
                 <div className="flex flex-col gap-3">

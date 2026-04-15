@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 
-const PRIVACY_API_BASE =
-  "http://ec2-13-39-163-72.eu-west-3.compute.amazonaws.com:3000";
+// New endpoint — plain JSON export, no SSE needed
+const PRIVACY_API_BASE = "http://178.104.192.180:3000";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// The upstream scan can take up to ~15 s
+export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
   const address = request.nextUrl.searchParams.get("address");
@@ -14,34 +16,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const upstream = await fetch(
-      `${PRIVACY_API_BASE}/api/scan?address=${encodeURIComponent(address)}`,
-      {
-        headers: {
-          Accept: "text/event-stream",
-          "Cache-Control": "no-cache",
-        },
-      }
+      `${PRIVACY_API_BASE}/api/scan/${encodeURIComponent(address)}/export`,
+      { headers: { Accept: "application/json" } }
     );
 
     if (!upstream.ok) {
-      return new Response(`Upstream error: ${upstream.status}`, {
-        status: 502,
-      });
+      return new Response(`Upstream error: ${upstream.status}`, { status: 502 });
     }
 
-    // Stream the SSE response straight through to the client
-    return new Response(upstream.body, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  } catch (err: any) {
-    return new Response(`Privacy API unavailable: ${err?.message ?? "unknown"}`, {
-      status: 503,
-    });
+    const data = await upstream.json();
+    return Response.json(data);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "unknown error";
+    return new Response(`Privacy API unavailable: ${msg}`, { status: 503 });
   }
 }
