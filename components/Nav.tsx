@@ -13,6 +13,7 @@ export function Nav() {
   const { address, status } = useAccount();
   const { disconnect } = useDisconnect();
   const [showMenu, setShowMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
   const isConnected = status === "connected" && !!address;
 
   const links = [
@@ -81,6 +82,23 @@ export function Nav() {
                 className="absolute right-0 top-full mt-1 rounded-xl overflow-hidden shadow-xl z-50 min-w-[160px]"
                 style={{ background: "#111118", border: "1px solid rgba(255,255,255,0.1)" }}
               >
+                {/* Full address + copy */}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(address ?? "");
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs font-card hover:bg-white/5 transition-colors group"
+                >
+                  <span className="font-mono text-white/40 truncate max-w-[120px]">
+                    {address?.slice(0, 8)}…{address?.slice(-6)}
+                  </span>
+                  <span className={copied ? "text-green-400" : "text-white/30 group-hover:text-white/60"}>
+                    {copied ? "✓ Copied" : "Copy"}
+                  </span>
+                </button>
+                <div className="border-t border-white/8 mb-1" />
                 <Link
                   href="/reveal"
                   onClick={() => setShowMenu(false)}
