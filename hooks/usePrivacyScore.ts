@@ -9,6 +9,7 @@ export interface UsePrivacyScoreResult {
   profile: PrivacyProfile | null;
   vibeType: VibeTypeIndex | null;
   error: string | null;
+  unsupportedChain: boolean;
   scan: (address: string) => Promise<void>;
   reset: () => void;
 }
@@ -18,6 +19,7 @@ export function usePrivacyScore(): UsePrivacyScoreResult {
   const [profile, setProfile] = useState<PrivacyProfile | null>(null);
   const [vibeType, setVibeType] = useState<VibeTypeIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unsupportedChain, setUnsupportedChain] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -27,6 +29,7 @@ export function usePrivacyScore(): UsePrivacyScoreResult {
     setProfile(null);
     setVibeType(null);
     setError(null);
+    setUnsupportedChain(false);
   }, []);
 
   const scan = useCallback(
@@ -42,6 +45,18 @@ export function usePrivacyScore(): UsePrivacyScoreResult {
           `/api/privacy?address=${encodeURIComponent(address)}`,
           { signal: controller.signal }
         );
+
+        // 422 = upstream returned {"error": "..."} — unsupported chain format
+        if (response.status === 422) {
+          const body = await response.json().catch(() => ({}));
+          const msg: string = body?.error ?? "Address format not supported";
+          if (msg.toLowerCase().includes("could not detect chain type")) {
+            setUnsupportedChain(true);
+          } else {
+            setError(msg);
+          }
+          return;
+        }
 
         if (!response.ok) {
           const text = await response.text().catch(() => "");
@@ -65,5 +80,5 @@ export function usePrivacyScore(): UsePrivacyScoreResult {
     [reset]
   );
 
-  return { scanning, profile, vibeType, error, scan, reset };
+  return { scanning, profile, vibeType, error, unsupportedChain, scan, reset };
 }

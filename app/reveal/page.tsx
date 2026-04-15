@@ -70,6 +70,7 @@ export default function RevealPage() {
     profile: scanProfile,
     vibeType: scanVibeType,
     error: scanError,
+    unsupportedChain,
     scan,
     reset: resetScan,
   } = usePrivacyScore();
@@ -254,6 +255,8 @@ export default function RevealPage() {
                 <p className="font-card text-white text-base mb-1">
                   {scanning
                     ? "Reading wallet history…"
+                    : unsupportedChain
+                    ? "Chain not supported"
                     : scanError
                     ? "Scan failed"
                     : "Scan complete"}
@@ -262,6 +265,47 @@ export default function RevealPage() {
                   {scanInputAddress.slice(0, 12)}…{scanInputAddress.slice(-8)}
                 </p>
               </div>
+
+              {unsupportedChain && (
+                <div className="flex flex-col gap-3 text-center">
+                  <div
+                    className="p-3 rounded-xl text-xs font-ui"
+                    style={{
+                      background: "rgba(255,180,0,0.08)",
+                      border: "1px solid rgba(255,180,0,0.2)",
+                      color: "rgba(255,200,80,0.9)",
+                    }}
+                  >
+                    <p className="font-medium mb-1">Starknet not supported yet</p>
+                    <p className="text-white/40">
+                      The scanner supports EVM, Bitcoin, and Solana addresses.
+                      Use your EVM wallet address, or take the quiz instead.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => { resetScan(); setShowingScan(false); }}
+                      className="min-touch flex-1 p-3 rounded-xl font-card text-sm text-white/60 text-center"
+                      style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                    >
+                      ← Try another
+                    </motion.button>
+                    <Link
+                      href="/quiz"
+                      className="min-touch flex-1 p-3 rounded-xl font-card text-sm text-center"
+                      style={{
+                        background: "rgba(212,83,126,0.12)",
+                        border: "1px solid rgba(212,83,126,0.25)",
+                        color: "rgba(212,83,126,0.9)",
+                      }}
+                    >
+                      Take the quiz ✨
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               {scanError && (
                 <div className="flex flex-col gap-3">
@@ -334,7 +378,7 @@ export default function RevealPage() {
                           Analyze wallet history
                         </p>
                         <p className="text-white/40 text-xs font-ui mt-0.5">
-                          EVM · Solana · Starknet · ENS names accepted
+                          EVM · Bitcoin · Solana · ENS names accepted
                         </p>
                       </div>
                     </div>
@@ -344,7 +388,7 @@ export default function RevealPage() {
                       type="text"
                       value={scanInputAddress}
                       onChange={(e) => setScanInputAddress(e.target.value)}
-                      placeholder="0x… or yourname.eth or Solana address"
+                      placeholder="0x… or name.eth or Solana address"
                       className="w-full px-3 py-2.5 rounded-xl text-xs font-mono text-white/80 outline-none transition-colors"
                       style={{
                         background: "rgba(255,255,255,0.05)",
