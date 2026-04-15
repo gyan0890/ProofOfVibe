@@ -53,6 +53,98 @@ function ScoreBar({
   );
 }
 
+// ── Faucet modal ──────────────────────────────────────────────────────────
+
+function FaucetModal({ address, onClose }: { address: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center px-6"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.2 }}
+          className="w-full max-w-sm p-6 rounded-2xl flex flex-col gap-4"
+          style={{ background: "#0d0d1a", border: "1px solid rgba(255,255,255,0.1)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="font-card text-lg font-medium text-white">Fund your wallet first</h2>
+              <p className="text-white/40 text-sm font-ui mt-1">
+                Your Cartridge account needs a small amount of Sepolia ETH or STRK before minting.
+              </p>
+            </div>
+            <button onClick={onClose} className="text-white/30 hover:text-white transition-colors text-xl ml-3 shrink-0">×</button>
+          </div>
+
+          {/* Steps */}
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3 items-start">
+              <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-card flex items-center justify-center shrink-0 mt-0.5">1</span>
+              <div className="flex-1">
+                <p className="text-white/70 text-xs font-ui mb-1.5">Copy your wallet address</p>
+                <button
+                  onClick={copy}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-mono transition-all"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+                >
+                  <span className="text-white/50 truncate">{address.slice(0, 14)}…{address.slice(-8)}</span>
+                  <span className={copied ? "text-green-400 shrink-0" : "text-violet-400 shrink-0"}>
+                    {copied ? "✓ Copied!" : "Copy"}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start">
+              <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-card flex items-center justify-center shrink-0 mt-0.5">2</span>
+              <div className="flex-1">
+                <p className="text-white/70 text-xs font-ui mb-1.5">Get free Sepolia ETH or STRK</p>
+                <a
+                  href="https://faucet.starknet.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-card transition-all hover:scale-105"
+                  style={{ background: "rgba(127,119,221,0.12)", border: "1px solid rgba(127,119,221,0.3)", color: "#a78bfa" }}
+                >
+                  faucet.starknet.io
+                  <span>↗</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start">
+              <span className="w-5 h-5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-card flex items-center justify-center shrink-0 mt-0.5">3</span>
+              <p className="text-white/70 text-xs font-ui mt-0.5">Come back and mint — your first transaction deploys the account automatically.</p>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl font-card text-sm text-white/60 transition-all hover:text-white"
+            style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            Got it
+          </button>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function RevealPage() {
@@ -61,7 +153,7 @@ export default function RevealPage() {
   // Tracks an existing onchain card without auto-showing it
   const [existingCard, setExistingCard] = useState<CardData | null>(null);
   const { address } = useAccount();
-  const { mint, minting, txHash, error: mintError } = useMint();
+  const { mint, minting, txHash, error: mintError, accountNotDeployed } = useMint();
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
   const [showConnectModal, setShowConnectModal] = useState(false);
   const animationStarted = useRef(false);
@@ -543,6 +635,10 @@ export default function RevealPage() {
         open={showConnectModal}
         onClose={() => setShowConnectModal(false)}
       />
+
+      {accountNotDeployed && address && (
+        <FaucetModal address={address} onClose={() => {}} />
+      )}
 
       <AnimatePresence mode="wait">
         {step === "pulse" && (

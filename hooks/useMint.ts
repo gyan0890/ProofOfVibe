@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useAccount, useContract, useSendTransaction } from "@starknet-react/core";
+import { useAccount, useContract, useSendTransaction, useProvider } from "@starknet-react/core";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { generateSalt, generatePersonaName } from "@/lib/utils";
 import { saveCardLocally, updateLocalCard, loadLocalCard } from "@/lib/storage";
 import { CardData, VibeTypeIndex } from "@/lib/types";
-import { hash, shortString, CallData } from "starknet";
+import { hash, shortString, CallData, RpcProvider } from "starknet";
 
 const VIBECARD_ABI = [
   {
@@ -24,9 +24,11 @@ const VIBECARD_ABI = [
 
 export function useMint() {
   const { address } = useAccount();
+  const { provider } = useProvider();
   const [minting, setMinting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accountNotDeployed, setAccountNotDeployed] = useState(false);
 
   const { contract } = useContract({
     abi: VIBECARD_ABI,
@@ -44,6 +46,18 @@ export function useMint() {
 
       setMinting(true);
       setError(null);
+      setAccountNotDeployed(false);
+
+      // Pre-check: is the account deployed on-chain?
+      // New Cartridge accounts are counterfactual — they need gas to deploy.
+      try {
+        await (provider as RpcProvider).getClassAt(address);
+      } catch {
+        // getClassAt throws if the contract doesn't exist
+        setAccountNotDeployed(true);
+        setMinting(false);
+        return null;
+      }
 
       try {
         const salt = generateSalt();
@@ -121,5 +135,5 @@ export function useMint() {
     [address, contract, sendAsync]
   );
 
-  return { mint, minting, txHash, error };
+  return { mint, minting, txHash, error, accountNotDeployed };
 }
