@@ -362,8 +362,11 @@ export default function RevealPage() {
       return;
     }
     if (card?.revealedType === undefined) return;
-    await mint(card.revealedType as VibeTypeIndex, card.personaName);
-    setCard((c) => (c ? { ...c, isAnchored: true, owner: address } : c));
+    const result = await mint(card.revealedType as VibeTypeIndex, card.personaName);
+    // Only mark as anchored if the transaction was actually submitted
+    if (result) {
+      setCard((c) => (c ? { ...c, isAnchored: true, owner: address } : c));
+    }
   }
 
   // ── Start privacy scan ───────────────────────────────────────────────────
