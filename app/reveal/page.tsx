@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useAccount } from "@starknet-react/core";
+import { useAccount, useDisconnect } from "@starknet-react/core";
 import { VibeCard } from "@/components/VibeCard";
 import { ConnectModal } from "@/components/ConnectModal";
 import { CardData, VibeTypeIndex } from "@/lib/types";
@@ -155,6 +155,7 @@ export default function RevealPage() {
   const [showFaucetModal, setShowFaucetModal] = useState(false);
   const { address } = useAccount();
   const { mint, minting, txHash, error: mintError } = useMint();
+  const { disconnect } = useDisconnect();
 
 
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
@@ -999,6 +1000,25 @@ export default function RevealPage() {
                   >
                     View my card →
                   </Link>
+
+                  {/* Escape hatch — disconnect or start fresh */}
+                  <div className="flex items-center justify-center gap-4 pt-1">
+                    {address && (
+                      <button
+                        onClick={() => { clearLocalCard(); disconnect(); }}
+                        className="text-xs font-ui text-white/20 hover:text-red-400/70 transition-colors"
+                      >
+                        Disconnect wallet
+                      </button>
+                    )}
+                    {address && <span className="text-white/10 text-xs">·</span>}
+                    <button
+                      onClick={() => { clearLocalCard(); setCard(null); resetScan(); setShowingScan(false); }}
+                      className="text-xs font-ui text-white/20 hover:text-white/50 transition-colors"
+                    >
+                      Start fresh
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
