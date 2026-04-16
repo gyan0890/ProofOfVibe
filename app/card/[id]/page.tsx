@@ -11,6 +11,7 @@ import { CardData, VibeTypeIndex } from "@/lib/types";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { loadLocalCard } from "@/lib/storage";
+import { useBattle, OnchainBattle } from "@/hooks/useBattle";
 
 const VIBECARD_READ_ABI = [
   {
@@ -79,6 +80,8 @@ export default function CardPage({ params }: { params: { id: string } }) {
   const [guessDistribution] = useState(() =>
     VIBE_TYPES.map((t) => ({ type: t, count: Math.floor(Math.random() * 30) }))
   );
+  const { getBattle } = useBattle();
+  const [pendingBattles, setPendingBattles] = useState<Array<{ battleId: number; battle: OnchainBattle }>>([]);
 
   useEffect(() => {
     async function loadCard() {
@@ -150,6 +153,28 @@ export default function CardPage({ params }: { params: { id: string } }) {
 
     loadCard();
   }, [params.id, provider]);
+
+  // Scan battle IDs 1-20 for pending challenges targeting this card
+  useEffect(() => {
+    const tokenId = parseTokenId(params.id);
+    if (tokenId === null) return;
+
+    async function scanPendingBattles() {
+      const ids = Array.from({ length: 20 }, (_, i) => i + 1);
+      const results = await Promise.all(ids.map((id) => getBattle(id)));
+      const pending = results
+        .map((b, i) => ({ battleId: i + 1, battle: b }))
+        .filter(
+          (entry): entry is { battleId: number; battle: OnchainBattle } =>
+            entry.battle !== null &&
+            entry.battle.defenderToken === tokenId &&
+            entry.battle.status === 0
+        );
+      setPendingBattles(pending);
+    }
+
+    scanPendingBattles();
+  }, [params.id, getBattle]);
 
   if (loading || !card) {
     return (
@@ -263,6 +288,42 @@ export default function CardPage({ params }: { params: { id: string } }) {
               </div>
               <p className="text-xs text-white/20 font-ui mt-3">{totalGuesses} community reads</p>
             </div>
+
+            {/* Pending Challenges */}
+            {(() => {
+              const localCard = loadLocalCard();
+              const isOwnCard =
+                (address && card.owner &&
+                  card.owner.toLowerCase() === address.toLowerCase()) ||
+                (localCard && localCard.id === params.id);
+
+              if (!isOwnCard || pendingBattles.length === 0) return null;
+
+              return (
+                <div
+                  className="p-5 rounded-2xl"
+                  style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.18)" }}
+                >
+                  <h3 className="font-card font-medium mb-3 text-sm" style={{ color: "#ef4444" }}>
+                    Pending Challenges ({pendingBattles.length})
+                  </h3>
+                  <div className="flex flex-col gap-3">
+                    {pendingBattles.map(({ battleId }) => (
+                      <div key={battleId} className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-white/60 font-ui">Battle #{battleId}</span>
+                        <button
+                          onClick={() => alert(`battle #${battleId} — submit defense coming soon`)}
+                          className="min-touch px-4 py-1.5 rounded-lg font-card text-xs text-white transition-all hover:scale-105"
+                          style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}
+                        >
+                          Respond
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Battle CTA — show only when this is NOT the current user's own card */}
             {(() => {
