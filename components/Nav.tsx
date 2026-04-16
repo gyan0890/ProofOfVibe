@@ -17,9 +17,8 @@ export function Nav() {
   const isConnected = status === "connected" && !!address;
 
   const links = [
-    { href: "/leaderboard", label: "⚔️ Leaderboard" },
+    { href: "/leaderboard", label: "⚔️ Battle" },
     { href: "/season", label: "Season" },
-    { href: "/demo", label: "Demo" },
   ];
 
   return (
