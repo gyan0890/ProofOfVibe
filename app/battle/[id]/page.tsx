@@ -66,6 +66,14 @@ function parseTokenId(id: string): number | null {
   return null;
 }
 
+/** Resolve the battle-usable token ID from a CardData object.
+ *  Prefers the explicit tokenId field; falls back to parsing the id string. */
+function resolveTokenId(card: { id: string; tokenId?: number } | null): number | null {
+  if (!card) return null;
+  if (card.tokenId !== undefined && card.tokenId > 0) return card.tokenId;
+  return parseTokenId(card.id);
+}
+
 const MOVES = [
   { label: "Identity Attack", description: "Target their public wallet signals" },
   { label: "Geographic Strike", description: "Expose their location patterns" },
@@ -105,7 +113,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     const local = loadLocalCard();
     if (!local) return;
     setChallengerCard(local);
-    setChallengerTokenId(parseTokenId(local.id));
+    setChallengerTokenId(resolveTokenId(local));
   }, []);
 
   useEffect(() => {
@@ -281,10 +289,19 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                 </div>
               )}
 
-              {(!challengerCard || !challengerCard.isAnchored || challengerTokenId === null) && (
+              {(!challengerCard || !challengerCard.isAnchored) && (
                 <div className="mb-6 text-white/60 font-ui text-sm">
                   You need a minted card to battle.{" "}
                   <Link href="/reveal" className="text-violet-400 hover:underline">Mint yours</Link>
+                </div>
+              )}
+              {challengerCard?.isAnchored && challengerTokenId === null && (
+                <div className="mb-6 text-white/60 font-ui text-sm">
+                  Resolving your card ID…{" "}
+                  <Link href="/reveal" className="text-violet-400 hover:underline">
+                    Visit your card page first
+                  </Link>{" "}
+                  then come back.
                 </div>
               )}
 

@@ -1,15 +1,47 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useAccount, useSendTransaction } from "@starknet-react/core";
+import { useAccount, useSendTransaction, useProvider } from "@starknet-react/core";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { generateSalt, generatePersonaName } from "@/lib/utils";
 import { saveCardLocally, updateLocalCard, loadLocalCard } from "@/lib/storage";
 import { CardData, VibeTypeIndex } from "@/lib/types";
-import { hash, shortString, CallData } from "starknet";
+import { hash, shortString, CallData, Contract } from "starknet";
+
+const VIBECARD_COUNTER_ABI = [
+  {
+    type: "function",
+    name: "token_counter",
+    inputs: [],
+    outputs: [{ type: "core::integer::u256" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_card",
+    inputs: [{ name: "token_id", type: "core::integer::u256" }],
+    outputs: [
+      {
+        type: "struct",
+        name: "vibe_card::CardData",
+        members: [
+          { name: "owner", type: "core::starknet::contract_address::ContractAddress" },
+          { name: "commitment", type: "core::felt252" },
+          { name: "ipfs_cid", type: "core::felt252" },
+          { name: "revealed_type", type: "core::integer::u8" },
+          { name: "palette_revealed", type: "core::bool" },
+          { name: "mint_timestamp", type: "core::integer::u64" },
+          { name: "persona_name", type: "core::felt252" },
+        ],
+      },
+    ],
+    state_mutability: "view",
+  },
+] as const;
 
 export function useMint() {
   const { address } = useAccount();
+  const { provider } = useProvider();
   const [minting, setMinting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +119,31 @@ export function useMint() {
             recentBattles: [],
           };
           saveCardLocally(newCard);
+        }
+
+        // Resolve the real onchain token ID so battle page can use it directly.
+        // Clears scan session markers so useMyCard re-fetches on next render.
+        sessionStorage.removeItem("privacyScanDone");
+        sessionStorage.removeItem("quizVibeType");
+        try {
+          const contract = new Contract({
+            abi: VIBECARD_COUNTER_ABI as any,
+            address: CONTRACT_ADDRESSES.vibeCard,
+            providerOrAccount: provider,
+          });
+          const counterRaw = await contract.token_counter();
+          const total = Number(counterRaw);
+          const normalizedAddress = address.toLowerCase();
+          // Scan the last 20 tokens (covers all reasonable activity windows)
+          for (let id = total; id >= Math.max(1, total - 20); id--) {
+            const raw = await contract.get_card({ low: id, high: 0 });
+            if (raw.owner?.toString().toLowerCase() === normalizedAddress) {
+              updateLocalCard({ id: `${address}-${id}`, tokenId: id });
+              break;
+            }
+          }
+        } catch (resolveErr) {
+          console.warn("[useMint] token ID resolution failed:", resolveErr);
         }
 
         return result;

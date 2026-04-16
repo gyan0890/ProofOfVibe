@@ -27,6 +27,12 @@ export interface CardData {
   privacyProfile?: PrivacyProfile;
   /** Starknet transaction hash from the mint, stored so Voyager link works after refresh */
   mintTxHash?: string;
+  /**
+   * Onchain token ID (small positive integer e.g. 1, 2, 3…).
+   * Set after mint resolves the real token ID from chain.
+   * Always use this for battle/contract calls instead of parsing from `id`.
+   */
+  tokenId?: number;
 }
 
 export interface TraitRevealState {

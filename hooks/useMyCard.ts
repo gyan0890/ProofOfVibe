@@ -104,6 +104,7 @@ export function useMyCard() {
 
         const onchainCard: CardData = {
           id: `${ownerAddress}-${id}`,
+          tokenId: id,
           owner: ownerAddress,
           commitment: raw.commitment?.toString() ?? "0x0",
           revealedType: revealed !== 255 ? (revealed as VibeTypeIndex) : undefined,
@@ -137,17 +138,30 @@ export function useMyCard() {
 
     const local = loadLocalCard();
 
-    // If we already have an anchored card for this address locally, use it.
-    // Skip during a fresh scan/quiz — the page is about to build its own card
-    // and we don't want to populate onchainCard before it does.
+    // If we already have an anchored card for this address with a valid token ID,
+    // use the cached version. Skip chain fetch during fresh scan/quiz sessions.
     if (local?.isAnchored && local.owner.toLowerCase() === address.toLowerCase()) {
       const isFreshSession =
         sessionStorage.getItem("privacyScanDone") ||
         sessionStorage.getItem("quizVibeType");
-      if (!isFreshSession) {
+      if (isFreshSession) return;
+
+      // Only skip chain fetch if we already have a valid small-integer token ID.
+      // Cards created during scan/quiz get timestamp-based IDs (>1M) that can't
+      // be used for battle — fall through to chain fetch in that case.
+      const hasValidTokenId =
+        local.tokenId !== undefined ||
+        (() => {
+          const parts = local.id.split("-");
+          const last = Number(parts[parts.length - 1]);
+          return Number.isInteger(last) && last > 0 && last < 1_000_000;
+        })();
+
+      if (hasValidTokenId) {
         setCard(local);
+        return;
       }
-      return;
+      // Fall through: card is anchored but tokenId not yet resolved → fetch chain
     }
 
     // Otherwise always check chain — covers: no card, unanchored card, different address
