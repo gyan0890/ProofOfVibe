@@ -385,16 +385,21 @@ export default function RevealPage() {
   // Step 1: clicking Mint always shows the faucet modal first.
   // Users with funds dismiss it and proceed; users without funds use the link.
   function handleLockIn() {
+    console.log('[handleLockIn] clicked', { address, revealedType: card?.revealedType });
     if (!address) {
       setShowConnectModal(true);
       return;
     }
-    if (card?.revealedType === undefined) return;
+    if (card?.revealedType === undefined) {
+      console.warn('[handleLockIn] no revealedType — aborting');
+      return;
+    }
     setShowFaucetModal(true);
   }
 
   // Step 2: "Got it" in the faucet modal fires the actual Cartridge transaction.
   async function doMint() {
+    console.log('[doMint] fired', { address, revealedType: card?.revealedType });
     if (!address || card?.revealedType === undefined) return;
     const result = await mint(card.revealedType as VibeTypeIndex, card.personaName);
     // Only mark as anchored if the transaction was actually submitted

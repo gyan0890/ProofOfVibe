@@ -44,7 +44,9 @@ export function useMint() {
           calldata: CallData.compile([commitment, "0x0", nameFelt]),
         };
 
+        console.log('[useMint] calling sendAsync with call:', call);
         const result = await sendAsync([call]);
+        console.log('[useMint] sendAsync result:', result);
 
         // Only mark the card as anchored if we actually got a transaction hash back.
         // Cartridge can return a result object without a hash on partial failures,
@@ -88,6 +90,7 @@ export function useMint() {
 
         return result;
       } catch (e: any) {
+        console.error('[useMint] sendAsync threw:', e);
         setError(e?.message ?? "Mint failed");
         return null;
       } finally {
