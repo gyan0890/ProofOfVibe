@@ -163,6 +163,9 @@ export default function RevealPage() {
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
   const [showConnectModal, setShowConnectModal] = useState(false);
   const animationStarted = useRef(false);
+  // Tracks whether the user has built a card from a fresh scan this session.
+  // A ref (not state) so it is immune to stale closures in the onchain effect.
+  const freshScanCardRef = useRef(false);
 
   // Privacy scan state
   const {
@@ -307,6 +310,7 @@ export default function RevealPage() {
       privacyProfile: scanProfile,
     };
 
+    freshScanCardRef.current = true;  // must be before setCard (sync, not stale)
     setCard(newCard);
     saveCardLocally(newCard);
     sessionStorage.setItem("privacyScanDone", "1");
@@ -317,6 +321,14 @@ export default function RevealPage() {
   // ── Onchain card loads ───────────────────────────────────────────────────
   useEffect(() => {
     if (!onchainCard) return;
+
+    // If a fresh scan card was built this session (ref is sync — never stale),
+    // the onchain card must NOT override it. Store it as existingCard only.
+    if (freshScanCardRef.current) {
+      setExistingCard(onchainCard);
+      return;
+    }
+
     const freshFromQuiz = !!sessionStorage.getItem("quizVibeType");
     const freshFromScan = !!sessionStorage.getItem("privacyScanDone");
     const freshSession = freshFromQuiz || freshFromScan;

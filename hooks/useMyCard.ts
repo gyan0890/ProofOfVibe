@@ -137,24 +137,32 @@ export function useMyCard() {
 
     const local = loadLocalCard();
 
-    // If we already have an anchored card for this address locally, use it
+    // If we already have an anchored card for this address locally, use it.
+    // Skip during a fresh scan/quiz — the page is about to build its own card
+    // and we don't want to populate onchainCard before it does.
     if (local?.isAnchored && local.owner.toLowerCase() === address.toLowerCase()) {
-      setCard(local);
+      const isFreshSession =
+        sessionStorage.getItem("privacyScanDone") ||
+        sessionStorage.getItem("quizVibeType");
+      if (!isFreshSession) {
+        setCard(local);
+      }
       return;
     }
 
     // Otherwise always check chain — covers: no card, unanchored card, different address
     fetchFromChain(address).then((found) => {
       if (found) {
-        // Don't overwrite localStorage if user is in the middle of a fresh scan/quiz —
-        // that would corrupt the newly built card and cause "Sealed onchain" to reappear.
+        // Don't touch localStorage or React state during a fresh scan/quiz session —
+        // doing so populates onchainCard, which can race with the scan result and
+        // cause the stale-closure bug where the onchain card overwrites the scan card.
         const isFreshSession =
           sessionStorage.getItem("privacyScanDone") ||
           sessionStorage.getItem("quizVibeType");
         if (!isFreshSession) {
           saveCardLocally(found);
+          setCard(found);
         }
-        setCard(found);
       }
     });
   }, [address, fetchFromChain]);
