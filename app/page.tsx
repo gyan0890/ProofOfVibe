@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import Link from "next/link";
 import { VibeCard } from "@/components/VibeCard";
-import { DEMO_CARDS } from "@/demo/mockData";
+import { useOnchainCards } from "@/hooks/useOnchainCards";
 import { seasonTimeRemaining } from "@/lib/utils";
 
 function CountdownUnit({ value, label }: { value: number; label: string }) {
@@ -31,16 +31,15 @@ function LiveStat({ label, value }: { label: string; value: string | number }) {
 
 export default function LandingPage() {
   const [countdown, setCountdown] = useState(seasonTimeRemaining());
-  const [stats] = useState({ minted: 1247, battlesToday: 83, reveals: 312 });
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 400], [0, -80]);
+  const { cards: onchainCards } = useOnchainCards(6);
+  const floatingCards = onchainCards.slice(0, 4);
 
   useEffect(() => {
     const t = setInterval(() => setCountdown(seasonTimeRemaining()), 1000);
     return () => clearInterval(t);
   }, []);
-
-  const floatingCards = DEMO_CARDS.slice(0, 4);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#080810]">
@@ -133,9 +132,9 @@ export default function LandingPage() {
             transition={{ delay: 0.5 }}
             className="flex flex-wrap justify-center gap-x-6 gap-y-2"
           >
-            <LiveStat value={stats.minted.toLocaleString()} label="cards minted" />
-            <LiveStat value={stats.battlesToday} label="battles today" />
-            <LiveStat value={stats.reveals} label="reveals remaining" />
+            {onchainCards.length > 0 && (
+              <LiveStat value={onchainCards.length} label="cards minted onchain" />
+            )}
           </motion.div>
         </div>
       </motion.section>

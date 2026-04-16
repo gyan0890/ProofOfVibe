@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useProvider, useAccount } from "@starknet-react/core";
 import { Contract, shortString } from "starknet";
 import { VibeCard } from "@/components/VibeCard";
-import { LEADERBOARD_MOCK_CARDS, DEMO_CARDS } from "@/demo/mockData";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
@@ -87,11 +86,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
     async function loadCard() {
       setLoading(true);
 
-      // 1. Check mock data (demo cards)
-      const mock = LEADERBOARD_MOCK_CARDS.find((c) => c.id === params.id);
-      if (mock) { setCard(mock); setLoading(false); return; }
-
-      // 2. Check localStorage (user's own card)
+      // 1. Check localStorage (user's own card)
       const local = loadLocalCard();
       if (local && local.id === params.id) { setCard(local); setLoading(false); return; }
 
@@ -146,8 +141,8 @@ export default function CardPage({ params }: { params: { id: string } }) {
         }
       }
 
-      // 4. Fallback
-      setCard(DEMO_CARDS[0]);
+      // 4. Not found
+      setCard(null);
       setLoading(false);
     }
 
@@ -176,7 +171,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
     scanPendingBattles();
   }, [params.id, getBattle]);
 
-  if (loading || !card) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#080810] flex items-center justify-center">
         <motion.div
@@ -184,6 +179,17 @@ export default function CardPage({ params }: { params: { id: string } }) {
           animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 1, repeat: Infinity }}
         />
+      </div>
+    );
+  }
+
+  if (!card) {
+    return (
+      <div className="min-h-screen bg-[#080810] flex flex-col items-center justify-center gap-4">
+        <p className="font-card text-white/60 text-lg">Card not found</p>
+        <Link href="/leaderboard" className="text-xs font-ui text-violet-400 hover:text-violet-300 transition-colors">
+          ← Back to Battle Arena
+        </Link>
       </div>
     );
   }
@@ -298,7 +304,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
                   );
                 })}
               </div>
-              <p className="text-xs text-white/20 font-ui mt-3">{totalGuesses} community reads</p>
+              <p className="text-xs text-white/20 font-ui mt-3">{totalGuesses} reads (estimated)</p>
             </div>
 
             {/* Pending Challenges */}

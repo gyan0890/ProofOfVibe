@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { LEADERBOARD_MOCK_CARDS } from "@/demo/mockData";
+import { useOnchainCards } from "@/hooks/useOnchainCards";
 import { seasonTimeRemaining } from "@/lib/utils";
 
 export default function SeasonPage() {
@@ -14,18 +14,21 @@ export default function SeasonPage() {
     return () => clearInterval(t);
   }, []);
 
+  const { cards, loading: cardsLoading } = useOnchainCards(50);
+
   const stats = {
-    minted: 1247,
-    battles: 483,
-    traitsRevealed: 892,
-    fullReveals: 63,
+    minted: cards.length,
+    battles: cards.reduce((s, c) => s + c.battleRecord.total, 0),
+    traitsRevealed: cards.filter(c => c.traitReveal.trait1Word).length,
+    fullReveals: cards.filter(c => c.traitReveal.typeRevealed).length,
   };
 
-  const ghostCandidates = LEADERBOARD_MOCK_CARDS
+  const ghostCandidates = [...cards]
     .filter((c) => !c.traitReveal.typeRevealed && c.traitReveal.lossCount === 0)
+    .sort((a, b) => b.mintTimestamp - a.mintTimestamp)
     .slice(0, 5);
 
-  const hotCards = [...LEADERBOARD_MOCK_CARDS]
+  const hotCards = [...cards]
     .sort((a, b) => b.battleRecord.total - a.battleRecord.total)
     .slice(0, 5);
 
@@ -78,7 +81,9 @@ export default function SeasonPage() {
           <h2 className="font-card text-lg font-medium text-white mb-4">Ghost Candidates 👻</h2>
           <p className="text-xs text-white/30 font-ui mb-4">Cards most likely to survive the season undetected</p>
           <div className="flex flex-col gap-2">
-            {ghostCandidates.map((card, i) => (
+            {ghostCandidates.length === 0 ? (
+              <p className="text-xs text-white/20 font-ui py-4 text-center">No ghost candidates yet — battle to create some.</p>
+            ) : ghostCandidates.map((card, i) => (
               <Link key={card.id} href={`/card/${card.id}`}>
                 <motion.div
                   initial={{ opacity: 0, x: -8 }}
@@ -104,7 +109,9 @@ export default function SeasonPage() {
           <h2 className="font-card text-lg font-medium text-white mb-4">Hottest Cards 🔥</h2>
           <p className="text-xs text-white/30 font-ui mb-4">Most battled in the last 24h</p>
           <div className="flex flex-col gap-2">
-            {hotCards.map((card, i) => (
+            {hotCards.length === 0 ? (
+              <p className="text-xs text-white/20 font-ui py-4 text-center">No battles yet — be the first to challenge.</p>
+            ) : hotCards.map((card, i) => (
               <Link key={card.id} href={`/card/${card.id}`}>
                 <motion.div
                   initial={{ opacity: 0, x: -8 }}

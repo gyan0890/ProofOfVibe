@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { VibeCard } from "@/components/VibeCard";
-import { DEMO_CARDS, LEADERBOARD_MOCK_CARDS, DEMO_SEASON_DAY, DEMO_SEASON_TOTAL } from "@/demo/mockData";
+import { DEMO_CARDS, DEMO_SEASON_DAY, DEMO_SEASON_TOTAL } from "@/demo/mockData";
 import { CardData } from "@/lib/types";
-import { VIBE_TYPES } from "@/lib/vibeTypes";
 
 const REVEAL_LEVELS: Partial<CardData["traitReveal"]>[] = [
   { lossCount: 0, paletteRevealed: false, typeRevealed: false },
@@ -149,35 +148,14 @@ export default function DemoPage() {
           </div>
         </div>
 
-        {/* Leaderboard preview */}
-        <div className="mt-12">
-          <h2 className="font-card text-lg font-medium text-white mb-6">Leaderboard Preview (20 cards)</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {LEADERBOARD_MOCK_CARDS.slice(0, 10).map((card, i) => {
-              const primaryColor = card.traitReveal.paletteRevealed && card.revealedType !== undefined
-                ? VIBE_TYPES[card.revealedType].primary : "#888780";
-              return (
-                <Link key={card.id} href={`/card/${card.id}`}>
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.04 }}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/3 transition-colors"
-                    style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
-                  >
-                    <span className="text-xs text-white/30 font-card w-4">{i + 1}</span>
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: primaryColor }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-card text-white truncate">{card.personaName}</p>
-                    </div>
-                    <span className="text-[10px] text-white/30 font-ui shrink-0">{card.battleRecord.wins}W {card.battleRecord.losses}L</span>
-                  </motion.div>
-                </Link>
-              );
-            })}
-          </div>
-          <Link href="/leaderboard" className="block text-center text-sm text-white/30 hover:text-white/60 transition-colors font-ui mt-4">
-            View full leaderboard →
+        {/* Real leaderboard CTA */}
+        <div className="mt-12 text-center">
+          <Link
+            href="/leaderboard"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
+            style={{ background: "rgba(127,119,221,0.12)", border: "1px solid rgba(127,119,221,0.25)" }}
+          >
+            ⚔️ View live battle arena →
           </Link>
         </div>
       </div>
