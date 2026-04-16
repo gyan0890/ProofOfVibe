@@ -236,9 +236,21 @@ export default function CardPage({ params }: { params: { id: string } }) {
 
             {/* Onchain badge */}
             {card.isAnchored && (
-              <div className="flex items-center gap-2 text-xs font-ui" style={{ color: "#22c55e" }}>
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                Sealed onchain · Sepolia
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-xs font-ui" style={{ color: "#22c55e" }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  Sealed onchain · Sepolia
+                </div>
+                {card.mintTxHash && (
+                  <a
+                    href={`https://sepolia.voyager.online/tx/${card.mintTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-ui text-white/30 hover:text-white/60 transition-colors ml-3.5"
+                  >
+                    View mint tx on Voyager ↗
+                  </a>
+                )}
               </div>
             )}
 

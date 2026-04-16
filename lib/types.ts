@@ -25,6 +25,8 @@ export interface CardData {
   recentBattles: BattleResult[];
   /** Present when card was created from a wallet privacy scan */
   privacyProfile?: PrivacyProfile;
+  /** Starknet transaction hash from the mint, stored so Voyager link works after refresh */
+  mintTxHash?: string;
 }
 
 export interface TraitRevealState {

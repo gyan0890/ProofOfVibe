@@ -65,6 +65,7 @@ export function useMint() {
             isAnchored: true,
             personaName: name,
             commitment,
+            mintTxHash: result.transaction_hash,
           });
         } else {
           const newCard: CardData = {
