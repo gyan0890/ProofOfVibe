@@ -257,8 +257,8 @@ export function VibeCard({
               animate={{ scale: [1, 1.04, 1] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             >
-              {/* Creature illustration — always visible once palette is revealed */}
-              {isPaletteRevealed && revealedType !== undefined && VIBE_CREATURES[revealedType] && (() => {
+              {/* Creature illustration — visible whenever vibe type is known */}
+              {revealedType !== undefined && VIBE_CREATURES[revealedType] && (() => {
                 const Creature = VIBE_CREATURES[revealedType];
                 return (
                   <div className="absolute inset-0 flex items-center justify-center">
