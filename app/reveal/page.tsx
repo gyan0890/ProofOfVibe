@@ -152,8 +152,14 @@ export default function RevealPage() {
   const [card, setCard] = useState<CardData | null>(null);
   // Tracks an existing onchain card without auto-showing it
   const [existingCard, setExistingCard] = useState<CardData | null>(null);
+  const [showFaucetModal, setShowFaucetModal] = useState(false);
   const { address } = useAccount();
   const { mint, minting, txHash, error: mintError, accountNotDeployed } = useMint();
+
+  // Auto-show faucet modal when pre-check detects undeployed account
+  useEffect(() => {
+    if (accountNotDeployed) setShowFaucetModal(true);
+  }, [accountNotDeployed]);
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
   const [showConnectModal, setShowConnectModal] = useState(false);
   const animationStarted = useRef(false);
@@ -636,8 +642,8 @@ export default function RevealPage() {
         onClose={() => setShowConnectModal(false)}
       />
 
-      {accountNotDeployed && address && (
-        <FaucetModal address={address} onClose={() => {}} />
+      {showFaucetModal && address && (
+        <FaucetModal address={address} onClose={() => setShowFaucetModal(false)} />
       )}
 
       <AnimatePresence mode="wait">
