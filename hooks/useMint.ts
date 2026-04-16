@@ -1,26 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useAccount, useContract, useSendTransaction, useProvider } from "@starknet-react/core";
+import { useAccount, useSendTransaction, useProvider } from "@starknet-react/core";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { generateSalt, generatePersonaName } from "@/lib/utils";
 import { saveCardLocally, updateLocalCard, loadLocalCard } from "@/lib/storage";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { hash, shortString, CallData, RpcProvider } from "starknet";
-
-const VIBECARD_ABI = [
-  {
-    type: "function",
-    name: "mint",
-    inputs: [
-      { name: "commitment", type: "core::felt252" },
-      { name: "ipfs_cid", type: "core::felt252" },
-      { name: "persona_name", type: "core::felt252" },
-    ],
-    outputs: [{ type: "core::integer::u256" }],
-    state_mutability: "external",
-  },
-] as const;
 
 export function useMint() {
   const { address } = useAccount();
@@ -30,16 +16,11 @@ export function useMint() {
   const [error, setError] = useState<string | null>(null);
   const [accountNotDeployed, setAccountNotDeployed] = useState(false);
 
-  const { contract } = useContract({
-    abi: VIBECARD_ABI,
-    address: CONTRACT_ADDRESSES.vibeCard as `0x${string}`,
-  });
-
   const { sendAsync } = useSendTransaction({});
 
   const mint = useCallback(
     async (vibeType: VibeTypeIndex, personaName?: string) => {
-      if (!address || !contract) {
+      if (!address) {
         setError("Wallet not connected");
         return null;
       }
@@ -50,13 +31,25 @@ export function useMint() {
 
       // Pre-check: is the account deployed on-chain?
       // New Cartridge accounts are counterfactual — they need gas to deploy.
+      // IMPORTANT: only treat as not-deployed for specific errors — a generic
+      // RPC timeout/network error must NOT block the mint popup from opening.
       try {
         await (provider as RpcProvider).getClassAt(address);
-      } catch {
-        // getClassAt throws if the contract doesn't exist
-        setAccountNotDeployed(true);
-        setMinting(false);
-        return null;
+      } catch (e: any) {
+        const msg: string = (e?.message ?? e?.toString() ?? "").toLowerCase();
+        const isNotDeployed =
+          msg.includes("contract not found") ||
+          msg.includes("is not deployed") ||
+          msg.includes("uninitialized") ||
+          msg.includes("class hash not found");
+        if (isNotDeployed) {
+          setAccountNotDeployed(true);
+          setMinting(false);
+          return null;
+        }
+        // For any other error (RPC hiccup, timeout, etc.) just continue —
+        // let Cartridge handle it; don't silently swallow the mint.
+        console.warn("useMint: getClassAt warning (proceeding anyway):", e?.message);
       }
 
       try {
@@ -138,7 +131,7 @@ export function useMint() {
         setMinting(false);
       }
     },
-    [address, contract, sendAsync]
+    [address, sendAsync]
   );
 
   return { mint, minting, txHash, error, accountNotDeployed };
