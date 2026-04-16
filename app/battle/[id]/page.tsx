@@ -9,6 +9,7 @@ import { VibeCard } from "@/components/VibeCard";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { loadLocalCard } from "@/lib/storage";
+import { useMyCard } from "@/hooks/useMyCard";
 import { useBattle, OnchainBattle } from "@/hooks/useBattle";
 
 const VIBECARD_READ_ABI = [
@@ -93,6 +94,11 @@ export default function BattlePage({ params }: { params: { id: string } }) {
   const { provider } = useProvider();
   const { initiateBattle, resolveBattle, getBattle, loading: battleLoading, error: battleError } = useBattle();
 
+  // useMyCard gives us the canonical version with a resolved tokenId.
+  // The battle page reads localStorage once on mount, but if the local card
+  // still has a stale scan-timestamp ID this hook will fix it asynchronously.
+  const { card: myCard } = useMyCard();
+
   const [challengerCard, setChallengerCard] = useState<CardData | null>(null);
   const [challengerTokenId, setChallengerTokenId] = useState<number | null>(null);
 
@@ -106,6 +112,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
   const [onchainBattle, setOnchainBattle] = useState<OnchainBattle | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [xHandle, setXHandle] = useState("");
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -115,6 +122,16 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     setChallengerCard(local);
     setChallengerTokenId(resolveTokenId(local));
   }, []);
+
+  // Sync from useMyCard whenever it resolves a better tokenId
+  useEffect(() => {
+    if (!myCard) return;
+    const id = resolveTokenId(myCard);
+    if (id !== null) {
+      setChallengerCard(myCard);
+      setChallengerTokenId(id);
+    }
+  }, [myCard]);
 
   useEffect(() => {
     if (!provider) return;
@@ -239,6 +256,13 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     const updated = await getBattle(pending.battleId);
     if (updated) setOnchainBattle(updated);
     setStep("resolved");
+  }
+
+  // Build Twitter share URL for the "Notify on X" button shown after committing
+  function buildTweetUrl(defenderName: string, cardUrl: string, xHandle?: string) {
+    const tag = xHandle ? ` @${xHandle.replace(/^@/, "")}` : "";
+    const text = `I just challenged${tag} "${defenderName}" on Proof of Vibe! Defend your card 👻\n${cardUrl} #ProofOfVibe #Starknet`;
+    return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
   }
 
   const isSelf =
@@ -438,6 +462,35 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                   Claim win (expired)
                 </button>
               )}
+
+              {/* ── Notify defender on X ── */}
+              <div className="flex flex-col items-center gap-2 mt-4 w-full max-w-xs">
+                <p className="text-[10px] font-ui text-white/25 tracking-wider uppercase">
+                  Know their X handle? Tag them
+                </p>
+                <div className="flex gap-2 w-full">
+                  <input
+                    type="text"
+                    placeholder="@handle (optional)"
+                    value={xHandle}
+                    onChange={(e) => setXHandle(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-lg text-xs font-ui text-white/70 bg-white/5 border border-white/10 focus:outline-none focus:border-white/20 placeholder-white/20"
+                  />
+                  <a
+                    href={buildTweetUrl(
+                      defenderCard?.personaName ?? `Card #${defenderTokenId}`,
+                      `https://proof-of-vibe-kohl.vercel.app/card/${params.id}`,
+                      xHandle || undefined
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-touch px-3 py-2 rounded-lg text-xs font-card text-white transition-all hover:scale-105 flex items-center gap-1.5"
+                    style={{ background: "rgba(29,161,242,0.15)", border: "1px solid rgba(29,161,242,0.3)" }}
+                  >
+                    𝕏 Post
+                  </a>
+                </div>
+              </div>
             </motion.div>
           )}
 

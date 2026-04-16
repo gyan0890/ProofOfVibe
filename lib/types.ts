@@ -33,6 +33,8 @@ export interface CardData {
    * Always use this for battle/contract calls instead of parsing from `id`.
    */
   tokenId?: number;
+  /** X (Twitter) handle set by the card owner for battle notifications */
+  xHandle?: string;
 }
 
 export interface TraitRevealState {

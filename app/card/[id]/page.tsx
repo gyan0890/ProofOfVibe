@@ -9,7 +9,7 @@ import { VibeCard } from "@/components/VibeCard";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
-import { loadLocalCard } from "@/lib/storage";
+import { loadLocalCard, updateLocalCard } from "@/lib/storage";
 import { useBattle, OnchainBattle } from "@/hooks/useBattle";
 
 const VIBECARD_READ_ABI = [
@@ -76,6 +76,15 @@ export default function CardPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const { provider } = useProvider();
   const { address } = useAccount();
+  const [xHandle, setXHandle] = useState("");
+  const [xSaved, setXSaved] = useState(false);
+
+  // Load X handle from local card
+  useEffect(() => {
+    const local = loadLocalCard();
+    if (local?.xHandle) setXHandle(local.xHandle);
+  }, []);
+
   const [guessDistribution] = useState(() =>
     VIBE_TYPES.map((t) => ({ type: t, count: Math.floor(Math.random() * 30) }))
   );
@@ -329,13 +338,13 @@ export default function CardPage({ params }: { params: { id: string } }) {
                     {pendingBattles.map(({ battleId }) => (
                       <div key={battleId} className="flex items-center justify-between gap-3">
                         <span className="text-sm text-white/60 font-ui">Battle #{battleId}</span>
-                        <button
-                          onClick={() => alert(`battle #${battleId} — submit defense coming soon`)}
-                          className="min-touch px-4 py-1.5 rounded-lg font-card text-xs text-white transition-all hover:scale-105"
+                        <Link
+                          href={`/battle/respond/${battleId}`}
+                          className="min-touch px-4 py-1.5 rounded-lg font-card text-xs text-white transition-all hover:scale-105 flex items-center justify-center"
                           style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}
                         >
-                          Respond
-                        </button>
+                          Respond ⚔️
+                        </Link>
                       </div>
                     ))}
                   </div>
@@ -353,24 +362,56 @@ export default function CardPage({ params }: { params: { id: string } }) {
 
               if (isOwnCard) {
                 return (
-                  <div className="flex flex-col gap-2">
-                    <Link
-                      href="/leaderboard"
-                      className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
-                      style={{
-                        background: "rgba(127,119,221,0.12)",
-                        border: "1px solid rgba(127,119,221,0.28)",
-                      }}
-                    >
-                      ⚔️ Find an opponent to battle
-                    </Link>
-                    <Link
-                      href="/reveal"
-                      className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white/50 transition-all hover:text-white"
-                    >
-                      ← Back to my card
-                    </Link>
-                  </div>
+                  <>
+                    <div className="flex flex-col gap-2">
+                      <Link
+                        href="/leaderboard"
+                        className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
+                        style={{
+                          background: "rgba(127,119,221,0.12)",
+                          border: "1px solid rgba(127,119,221,0.28)",
+                        }}
+                      >
+                        ⚔️ Find an opponent to battle
+                      </Link>
+                      <Link
+                        href="/reveal"
+                        className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white/50 transition-all hover:text-white"
+                      >
+                        ← Back to my card
+                      </Link>
+                    </div>
+
+                    {/* X handle — so challengers can tag you */}
+                    <div className="p-4 rounded-xl" style={{ background: "rgba(29,161,242,0.05)", border: "1px solid rgba(29,161,242,0.15)" }}>
+                      <p className="text-[10px] font-ui text-white/30 tracking-wider uppercase mb-2">
+                        𝕏 Handle — be tagged when challenged
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="@yourhandle"
+                          value={xHandle}
+                          onChange={(e) => { setXHandle(e.target.value); setXSaved(false); }}
+                          className="flex-1 px-3 py-2 rounded-lg text-xs font-ui text-white/70 bg-white/5 border border-white/10 focus:outline-none focus:border-white/20 placeholder-white/20"
+                        />
+                        <button
+                          onClick={() => {
+                            updateLocalCard({ xHandle: xHandle.replace(/^@/, "") });
+                            setXSaved(true);
+                            setTimeout(() => setXSaved(false), 2000);
+                          }}
+                          className="px-3 py-2 rounded-lg text-xs font-card text-white transition-all hover:scale-105"
+                          style={{ background: "rgba(29,161,242,0.12)", border: "1px solid rgba(29,161,242,0.25)" }}
+                        >
+                          {xSaved ? "✓ Saved" : "Save"}
+                        </button>
+                      </div>
+                      <p className="text-[9px] text-white/20 font-ui mt-1.5">
+                        Stored locally. Challengers can optionally tag you when posting.
+                      </p>
+                    </div>
+                  </>
                 );
               }
 
