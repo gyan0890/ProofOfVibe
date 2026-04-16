@@ -146,7 +146,14 @@ export function useMyCard() {
     // Otherwise always check chain — covers: no card, unanchored card, different address
     fetchFromChain(address).then((found) => {
       if (found) {
-        saveCardLocally(found);
+        // Don't overwrite localStorage if user is in the middle of a fresh scan/quiz —
+        // that would corrupt the newly built card and cause "Sealed onchain" to reappear.
+        const isFreshSession =
+          sessionStorage.getItem("privacyScanDone") ||
+          sessionStorage.getItem("quizVibeType");
+        if (!isFreshSession) {
+          saveCardLocally(found);
+        }
         setCard(found);
       }
     });

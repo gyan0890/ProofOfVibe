@@ -207,6 +207,14 @@ export default function RevealPage() {
     const freshFromScan = !!sessionStorage.getItem("privacyScanDone");
 
     if (local && (freshFromQuiz || freshFromScan)) {
+      // Sanity check: if the "fresh" local card is actually the old onchain card
+      // (anchored, no privacyProfile) it means useMyCard previously overwrote
+      // localStorage. Discard it so the scan can rebuild properly.
+      if (local.isAnchored && !local.privacyProfile && freshFromScan) {
+        clearLocalCard();
+        // Don't auto-show — the scan result effect will rebuild the card
+        return;
+      }
       // Fresh session — show the card immediately
       setCard(local);
       startAnimation();
