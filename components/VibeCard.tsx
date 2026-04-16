@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { CardData, TraitRevealState, VibeTypeIndex } from "@/lib/types";
 import { VIBE_TYPES, getVibeType } from "@/lib/vibeTypes";
+import { VIBE_CREATURES } from "@/lib/vibeCreatures";
 import { truncateAddress } from "@/lib/utils";
 import { StarknetLogo } from "./icons/StarknetLogo";
 
@@ -249,16 +250,28 @@ export function VibeCard({
             />
             {/* Orb fill */}
             <motion.div
-              className="absolute inset-2 rounded-full flex items-center justify-center"
+              className="absolute inset-2 rounded-full flex items-center justify-center overflow-hidden"
               style={{
                 background: `radial-gradient(circle at 40% 40%, ${primaryColor}CC, ${primaryColor}44)`,
               }}
               animate={{ scale: [1, 1.04, 1] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             >
+              {/* Creature illustration — always visible once palette is revealed */}
+              {isPaletteRevealed && revealedType !== undefined && VIBE_CREATURES[revealedType] && (() => {
+                const Creature = VIBE_CREATURES[revealedType];
+                return (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Creature size={156} />
+                  </div>
+                );
+              })()}
+
+              {/* Type name overlay — only when fully revealed */}
               {isTypeRevealed ? (
                 <motion.span
-                  className="text-white font-card font-medium text-sm text-center px-2 leading-tight"
+                  className="relative z-10 text-white font-card font-medium text-sm text-center px-2 leading-tight"
+                  style={{ textShadow: "0 0 8px rgba(0,0,0,0.8)" }}
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.4 }}
@@ -266,7 +279,7 @@ export function VibeCard({
                   {vibeType?.name}
                 </motion.span>
               ) : (
-                <span className="text-white/60 font-card text-5xl font-light">?</span>
+                <span className="relative z-10 text-white/60 font-card text-5xl font-light" style={{ textShadow: "0 0 12px rgba(0,0,0,0.9)" }}>?</span>
               )}
             </motion.div>
           </div>
