@@ -80,11 +80,17 @@ export function useMint() {
         };
 
         const result = await sendAsync([call]);
-        if (result?.transaction_hash) {
-          setTxHash(result.transaction_hash);
+
+        // Only mark the card as anchored if we actually got a transaction hash back.
+        // Cartridge can return a result object without a hash on partial failures,
+        // which would cause "Sealed onchain" to appear even though nothing landed.
+        if (!result?.transaction_hash) {
+          return null;
         }
 
-        // Update local card to anchored
+        setTxHash(result.transaction_hash);
+
+        // Update local card to anchored now that we have a confirmed submission
         const existing = loadLocalCard();
         if (existing) {
           updateLocalCard({

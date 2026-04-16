@@ -200,6 +200,15 @@ export default function RevealPage() {
 
   // ── Mount: check for existing card ──────────────────────────────────────
   useEffect(() => {
+    // One-time migration: clear any card that was falsely marked anchored
+    // (i.e. isAnchored=true but no privacyProfile AND no quiz-based card).
+    // These were written by old buggy mint code that ran updateLocalCard before
+    // confirming a tx hash. Clearing here ensures a clean slate on next scan.
+    const stale = loadLocalCard();
+    if (stale?.isAnchored && !stale.privacyProfile) {
+      clearLocalCard();
+    }
+
     const local = loadLocalCard();
 
     // Only auto-load a local card if:
@@ -210,15 +219,23 @@ export default function RevealPage() {
     const freshFromScan = !!sessionStorage.getItem("privacyScanDone");
 
     if (local && (freshFromQuiz || freshFromScan)) {
-      // Sanity check: if the "fresh" local card is actually the old onchain card
-      // (anchored, no privacyProfile) it means useMyCard previously overwrote
-      // localStorage. Discard it so the scan can rebuild properly.
-      if (local.isAnchored && !local.privacyProfile && freshFromScan) {
-        clearLocalCard();
-        // Don't auto-show — the scan result effect will rebuild the card
+      // If the local card is anchored, it came from a previous mint.
+      // Only keep it if both conditions hold:
+      //   (a) it has a privacyProfile (it was legitimately built from a scan)
+      //   (b) it genuinely came from a successful mint (isAnchored set only after tx hash)
+      // If either is missing, it was corrupted by a failed mint — discard and start fresh.
+      if (local.isAnchored) {
+        if (!local.privacyProfile) {
+          // Anchored but no privacy data — stale/corrupted, clear it
+          clearLocalCard();
+          return;
+        }
+        // Anchored with privacy data = legitimately minted card, show it
+        setCard(local);
+        startAnimation();
         return;
       }
-      // Fresh session — show the card immediately
+      // Unanchored fresh session card — show it
       setCard(local);
       startAnimation();
       return;
