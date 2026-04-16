@@ -313,8 +313,8 @@ export default function RevealPage() {
     const freshFromScan = !!sessionStorage.getItem("privacyScanDone");
     const freshSession = freshFromQuiz || freshFromScan;
 
-    if (freshSession && (!card || !card.isAnchored)) {
-      // Just completed a scan/quiz and the card got minted — show it
+    if (freshSession && !card) {
+      // Fresh session but no card built yet — use the onchain card
       setCard(onchainCard);
       setStep("actions");
       animationStarted.current = true;
