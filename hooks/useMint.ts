@@ -1,16 +1,15 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useAccount, useSendTransaction, useProvider } from "@starknet-react/core";
+import { useAccount, useSendTransaction } from "@starknet-react/core";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { generateSalt, generatePersonaName } from "@/lib/utils";
 import { saveCardLocally, updateLocalCard, loadLocalCard } from "@/lib/storage";
 import { CardData, VibeTypeIndex } from "@/lib/types";
-import { hash, shortString, CallData, RpcProvider } from "starknet";
+import { hash, shortString, CallData } from "starknet";
 
 export function useMint() {
   const { address } = useAccount();
-  const { provider } = useProvider();
   const [minting, setMinting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,29 +27,6 @@ export function useMint() {
       setMinting(true);
       setError(null);
       setAccountNotDeployed(false);
-
-      // Pre-check: is the account deployed on-chain?
-      // New Cartridge accounts are counterfactual — they need gas to deploy.
-      // IMPORTANT: only treat as not-deployed for specific errors — a generic
-      // RPC timeout/network error must NOT block the mint popup from opening.
-      try {
-        await (provider as RpcProvider).getClassAt(address);
-      } catch (e: any) {
-        const msg: string = (e?.message ?? e?.toString() ?? "").toLowerCase();
-        const isNotDeployed =
-          msg.includes("contract not found") ||
-          msg.includes("is not deployed") ||
-          msg.includes("uninitialized") ||
-          msg.includes("class hash not found");
-        if (isNotDeployed) {
-          setAccountNotDeployed(true);
-          setMinting(false);
-          return null;
-        }
-        // For any other error (RPC hiccup, timeout, etc.) just continue —
-        // let Cartridge handle it; don't silently swallow the mint.
-        console.warn("useMint: getClassAt warning (proceeding anyway):", e?.message);
-      }
 
       try {
         const salt = generateSalt();
@@ -117,12 +93,16 @@ export function useMint() {
         return result;
       } catch (e: any) {
         const msg: string = e?.message ?? "Mint failed";
-        // Cartridge: new account not yet deployed on-chain (needs gas/credits)
-        if (msg.includes("Invalid transaction nonce") || msg.toLowerCase().includes("nonce")) {
-          setError(
-            "Your Cartridge account needs Sepolia ETH to cover gas. " +
-            "Get free ETH at faucet.starknet.io, then try again."
-          );
+        const msgLower = msg.toLowerCase();
+        // Detect undeployed Cartridge account — show faucet modal instead of raw error
+        const isNotDeployed =
+          msgLower.includes("contract not found") ||
+          msgLower.includes("is not deployed") ||
+          msgLower.includes("class hash not found") ||
+          msgLower.includes("invalid transaction nonce") ||
+          msgLower.includes("nonce");
+        if (isNotDeployed) {
+          setAccountNotDeployed(true);
         } else {
           setError(msg);
         }
