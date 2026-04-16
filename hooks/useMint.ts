@@ -13,8 +13,6 @@ export function useMint() {
   const [minting, setMinting] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [accountNotDeployed, setAccountNotDeployed] = useState(false);
-
   const { sendAsync } = useSendTransaction({});
 
   const mint = useCallback(
@@ -26,8 +24,6 @@ export function useMint() {
 
       setMinting(true);
       setError(null);
-      setAccountNotDeployed(false);
-
       try {
         const salt = generateSalt();
         const name = personaName ?? generatePersonaName();
@@ -92,20 +88,7 @@ export function useMint() {
 
         return result;
       } catch (e: any) {
-        const msg: string = e?.message ?? "Mint failed";
-        const msgLower = msg.toLowerCase();
-        // Detect undeployed Cartridge account — show faucet modal instead of raw error
-        const isNotDeployed =
-          msgLower.includes("contract not found") ||
-          msgLower.includes("is not deployed") ||
-          msgLower.includes("class hash not found") ||
-          msgLower.includes("invalid transaction nonce") ||
-          msgLower.includes("nonce");
-        if (isNotDeployed) {
-          setAccountNotDeployed(true);
-        } else {
-          setError(msg);
-        }
+        setError(e?.message ?? "Mint failed");
         return null;
       } finally {
         setMinting(false);
@@ -114,5 +97,5 @@ export function useMint() {
     [address, sendAsync]
   );
 
-  return { mint, minting, txHash, error, accountNotDeployed };
+  return { mint, minting, txHash, error };
 }

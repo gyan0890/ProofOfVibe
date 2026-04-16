@@ -55,7 +55,7 @@ function ScoreBar({
 
 // ── Faucet modal ──────────────────────────────────────────────────────────
 
-function FaucetModal({ address, onClose }: { address: string; onClose: () => void }) {
+function FaucetModal({ address, onClose, onConfirm }: { address: string; onClose: () => void; onConfirm: () => void }) {
   const [copied, setCopied] = useState(false);
   function copy() {
     navigator.clipboard.writeText(address);
@@ -133,11 +133,11 @@ function FaucetModal({ address, onClose }: { address: string; onClose: () => voi
           </div>
 
           <button
-            onClick={onClose}
-            className="w-full py-2.5 rounded-xl font-card text-sm text-white/60 transition-all hover:text-white"
-            style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+            onClick={() => { onClose(); onConfirm(); }}
+            className="w-full py-2.5 rounded-xl font-card text-sm font-medium text-[#080810] transition-all hover:scale-105"
+            style={{ background: "linear-gradient(135deg, #a78bfa, #7F77DD)" }}
           >
-            Got it
+            Got it — Mint my card ⚡
           </button>
         </motion.div>
       </motion.div>
@@ -154,12 +154,9 @@ export default function RevealPage() {
   const [existingCard, setExistingCard] = useState<CardData | null>(null);
   const [showFaucetModal, setShowFaucetModal] = useState(false);
   const { address } = useAccount();
-  const { mint, minting, txHash, error: mintError, accountNotDeployed } = useMint();
+  const { mint, minting, txHash, error: mintError } = useMint();
 
-  // Auto-show faucet modal when pre-check detects undeployed account
-  useEffect(() => {
-    if (accountNotDeployed) setShowFaucetModal(true);
-  }, [accountNotDeployed]);
+
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
   const [showConnectModal, setShowConnectModal] = useState(false);
   const animationStarted = useRef(false);
@@ -385,12 +382,20 @@ export default function RevealPage() {
   }, [address]);
 
   // ── Mint handler ─────────────────────────────────────────────────────────
-  async function handleLockIn() {
+  // Step 1: clicking Mint always shows the faucet modal first.
+  // Users with funds dismiss it and proceed; users without funds use the link.
+  function handleLockIn() {
     if (!address) {
       setShowConnectModal(true);
       return;
     }
     if (card?.revealedType === undefined) return;
+    setShowFaucetModal(true);
+  }
+
+  // Step 2: "Got it" in the faucet modal fires the actual Cartridge transaction.
+  async function doMint() {
+    if (!address || card?.revealedType === undefined) return;
     const result = await mint(card.revealedType as VibeTypeIndex, card.personaName);
     // Only mark as anchored if the transaction was actually submitted
     if (result) {
@@ -683,7 +688,7 @@ export default function RevealPage() {
       />
 
       {showFaucetModal && address && (
-        <FaucetModal address={address} onClose={() => setShowFaucetModal(false)} />
+        <FaucetModal address={address} onClose={() => setShowFaucetModal(false)} onConfirm={doMint} />
       )}
 
       <AnimatePresence mode="wait">
