@@ -1002,22 +1002,34 @@ export default function RevealPage() {
                   </Link>
 
                   {/* Escape hatch — disconnect or start fresh */}
-                  <div className="flex items-center justify-center gap-4 pt-1">
+                  <div
+                    className="flex items-center justify-center gap-3 pt-2 pb-1"
+                    style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+                  >
+                    <button
+                      onClick={() => { clearLocalCard(); setCard(null); resetScan(); setShowingScan(false); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-ui transition-all hover:scale-105"
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.1)",
+                        color: "rgba(255,255,255,0.45)",
+                      }}
+                    >
+                      ↺ Scan a different wallet
+                    </button>
                     {address && (
                       <button
                         onClick={() => { clearLocalCard(); disconnect(); }}
-                        className="text-xs font-ui text-white/20 hover:text-red-400/70 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-ui transition-all hover:scale-105"
+                        style={{
+                          background: "rgba(239,68,68,0.06)",
+                          border: "1px solid rgba(239,68,68,0.18)",
+                          color: "rgba(239,68,68,0.6)",
+                        }}
                       >
-                        Disconnect wallet
+                        Disconnect
                       </button>
                     )}
-                    {address && <span className="text-white/10 text-xs">·</span>}
-                    <button
-                      onClick={() => { clearLocalCard(); setCard(null); resetScan(); setShowingScan(false); }}
-                      className="text-xs font-ui text-white/20 hover:text-white/50 transition-colors"
-                    >
-                      Start fresh
-                    </button>
                   </div>
                 </motion.div>
               )}
