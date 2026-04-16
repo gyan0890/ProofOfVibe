@@ -175,6 +175,7 @@ export default function RevealPage() {
     reset: resetScan,
   } = usePrivacyScore();
   const [showingScan, setShowingScan] = useState(false);
+  const [noActivityFound, setNoActivityFound] = useState(false);
   // The address to scan — defaults to connected wallet, but user can type any address
   const [scanInputAddress, setScanInputAddress] = useState("");
 
@@ -296,6 +297,20 @@ export default function RevealPage() {
   useEffect(() => {
     if (!scanProfile || scanVibeType === null) return;
 
+    // Detect wallets with no on-chain activity — all scores zero, no transactions
+    const allZero =
+      scanProfile.identityLeakage === 0 &&
+      scanProfile.geographicSignal === 0 &&
+      scanProfile.financialProfile === 0 &&
+      scanProfile.behavioralFingerprint === 0 &&
+      (scanProfile.totalTransactions ?? 0) === 0;
+
+    if (allZero) {
+      setNoActivityFound(true);
+      // Stay in scanning view to show the no-activity message
+      return;
+    }
+
     const personaName =
       scanProfile.ensName ??
       sessionStorage.getItem("personaName") ??
@@ -408,6 +423,40 @@ export default function RevealPage() {
     }
   }
 
+  // ── Proceed as Ghost when wallet has no activity ─────────────────────────
+  function handleProceedAsGhost() {
+    if (!scanProfile || scanVibeType === null) return;
+    const personaName = scanProfile.ensName ?? generatePersonaName();
+    const owner = address ?? scanProfile.scannedAddress;
+    const newCard: CardData = {
+      id: `scan-${Date.now()}`,
+      owner,
+      commitment: "0x0",
+      revealedType: scanVibeType,
+      paletteRevealed: true,
+      mintTimestamp: Date.now(),
+      personaName,
+      isAnchored: false,
+      battleRecord: { wins: 0, losses: 0, total: 0 },
+      traitReveal: {
+        barFillsAccurate: false,
+        paletteRevealed: true,
+        typeRevealed: false,
+        lossCount: 0,
+        trait1Word: scanProfile.identityLabel,
+      },
+      recentBattles: [],
+      privacyProfile: scanProfile,
+    };
+    freshScanCardRef.current = true;
+    setCard(newCard);
+    saveCardLocally(newCard);
+    sessionStorage.setItem("privacyScanDone", "1");
+    setNoActivityFound(false);
+    setShowingScan(false);
+    startAnimation();
+  }
+
   // ── Start privacy scan ───────────────────────────────────────────────────
   function handleStartScan() {
     const target = scanInputAddress.trim();
@@ -497,6 +546,59 @@ export default function RevealPage() {
                 </div>
               )}
 
+              {noActivityFound && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col gap-3"
+                >
+                  <div
+                    className="p-4 rounded-xl text-center"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <p className="font-card text-white/80 font-medium mb-1">🫥 No on-chain activity found</p>
+                    <p className="text-white/40 text-xs font-ui mt-1">
+                      This wallet has no transaction history, so all privacy scores are 0.
+                      Try a different wallet, take the quiz, or proceed as a Ghost.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => { setNoActivityFound(false); resetScan(); setShowingScan(false); }}
+                      className="min-touch flex-1 p-3 rounded-xl font-card text-sm text-white/60 text-center"
+                      style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                    >
+                      ← Try another
+                    </motion.button>
+                    <Link
+                      href="/quiz"
+                      className="min-touch flex-1 p-3 rounded-xl font-card text-sm text-center"
+                      style={{
+                        background: "rgba(212,83,126,0.12)",
+                        border: "1px solid rgba(212,83,126,0.25)",
+                        color: "rgba(212,83,126,0.9)",
+                      }}
+                    >
+                      Take the quiz ✨
+                    </Link>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleProceedAsGhost}
+                    className="min-touch w-full p-3 rounded-xl font-card text-sm text-white/40 text-center"
+                    style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+                  >
+                    I'm a Ghost — proceed anyway
+                  </motion.button>
+                </motion.div>
+              )}
+
               {scanError && (
                 <div className="flex flex-col gap-3">
                   <p className="text-red-400 text-xs font-ui text-center">
@@ -521,6 +623,7 @@ export default function RevealPage() {
                 <button
                   onClick={() => {
                     resetScan();
+                    setNoActivityFound(false);
                     setShowingScan(false);
                   }}
                   className="text-white/20 text-xs font-ui text-center hover:text-white/40 transition-colors"
