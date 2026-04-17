@@ -660,6 +660,32 @@ export default function RevealPage() {
                     Looking up your card…
                   </p>
                 </div>
+              ) : onchainCard && address?.toLowerCase() !== "0x06103a29315c29c70c19064386d898cb37c7a634442a825b14f96a5215f9e702" ? (
+                /* ── Already minted — surface the existing card ─────── */
+                <motion.div
+                  key="already-minted"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="w-full max-w-sm flex flex-col gap-4 text-center"
+                >
+                  <div
+                    className="p-5 rounded-2xl flex flex-col gap-3"
+                    style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)" }}
+                  >
+                    <span className="text-3xl">✅</span>
+                    <p className="font-card text-white font-medium">You already have a card</p>
+                    <p className="text-white/40 text-sm font-ui">
+                      <strong className="text-white/70">{onchainCard.personaName}</strong> is sealed onchain. One card per wallet.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setCard(onchainCard); setStep("actions"); animationStarted.current = true; }}
+                    className="w-full py-3 rounded-xl font-card text-sm text-white hover:scale-105 transition-all"
+                    style={{ background: "rgba(127,119,221,0.15)", border: "1px solid rgba(127,119,221,0.3)" }}
+                  >
+                    View my card →
+                  </button>
+                </motion.div>
               ) : (
                 <>
                   {/* ── Option A: Scan any wallet ─────────────────────── */}

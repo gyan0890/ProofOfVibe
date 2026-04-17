@@ -34,8 +34,8 @@ const VIBECARD_READ_ABI = [
   },
   {
     type: "function",
-    name: "token_counter",
-    inputs: [],
+    name: "get_token_of_owner",
+    inputs: [{ name: "owner", type: "core::starknet::contract_address::ContractAddress" }],
     outputs: [{ type: "core::integer::u256" }],
     state_mutability: "view",
   },
@@ -77,64 +77,53 @@ export function useMyCard() {
         providerOrAccount: provider,
       });
 
-      const counterRaw = await contract.token_counter();
-      const total = Number(counterRaw);
-      if (total === 0) return null;
+      // O(1) lookup — no loop needed with owner_to_token mapping
+      const tokenIdRaw = await contract.get_token_of_owner(ownerAddress);
+      const tokenId = Number(tokenIdRaw);
 
-      // Search for the card owned by this address.
-      // Strip leading zeros before comparing — the wallet returns "0x0612..."
-      // but the contract may return "0x612..." for the same address.
-      const stripLeadingZeros = (a: string) =>
-        "0x" + a.toLowerCase().replace(/^0x0*/, "");
-      const normalizedOwner = stripLeadingZeros(ownerAddress);
-      console.log("[useMyCard] scanning chain — total tokens:", total, "looking for:", normalizedOwner);
-      for (let id = 1; id <= total; id++) {
-        const raw = await contract.get_card({ low: id, high: 0 });
-        // num.toHex handles decimal, hex, and BigInt — always gives "0x..." hex string
-        const rawOwner: string = (() => {
-          try { return num.toHex(raw.owner?.toString() ?? "0x0"); } catch { return raw.owner?.toString() ?? ""; }
-        })();
-        console.log(`[useMyCard] token #${id} owner raw="${raw.owner?.toString()}" asHex="${rawOwner}" normalized="${stripLeadingZeros(rawOwner)}" match=${stripLeadingZeros(rawOwner) === normalizedOwner}`);
-        if (stripLeadingZeros(rawOwner) !== normalizedOwner) continue;
-
-        const [traitRaw, lossesRaw] = await Promise.all([
-          contract.get_trait_state({ low: id, high: 0 }),
-          contract.get_battle_losses({ low: id, high: 0 }),
-        ]);
-
-        const revealed = Number(raw.revealed_type);
-        const personaName = (() => {
-          try {
-            return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0");
-          } catch {
-            return "Unknown";
-          }
-        })();
-
-        const onchainCard: CardData = {
-          id: `${ownerAddress}-${id}`,
-          tokenId: id,
-          owner: ownerAddress,
-          commitment: raw.commitment?.toString() ?? "0x0",
-          revealedType: revealed !== 255 ? (revealed as VibeTypeIndex) : undefined,
-          paletteRevealed: Boolean(raw.palette_revealed),
-          mintTimestamp: Number(raw.mint_timestamp) * 1000,
-          personaName,
-          isAnchored: true,
-          battleRecord: { wins: 0, losses: Number(lossesRaw), total: Number(lossesRaw) },
-          traitReveal: {
-            barFillsAccurate: Boolean(traitRaw.bar_fills_accurate),
-            paletteRevealed: Boolean(traitRaw.palette_revealed),
-            typeRevealed: Boolean(traitRaw.type_revealed),
-            lossCount: Number(lossesRaw),
-          },
-          recentBattles: [],
-        };
-
-        return onchainCard;
+      if (tokenId === 0) {
+        console.log("[useMyCard] no card found for", ownerAddress);
+        return null;
       }
-      console.log("[useMyCard] no card found on chain for", ownerAddress);
-      return null;
+
+      console.log("[useMyCard] found tokenId:", tokenId, "for", ownerAddress);
+
+      const [raw, traitRaw, lossesRaw] = await Promise.all([
+        contract.get_card({ low: tokenId, high: 0 }),
+        contract.get_trait_state({ low: tokenId, high: 0 }),
+        contract.get_battle_losses({ low: tokenId, high: 0 }),
+      ]);
+
+      const revealed = Number(raw.revealed_type);
+      const personaName = (() => {
+        try {
+          return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0");
+        } catch {
+          return "Unknown";
+        }
+      })();
+
+      const onchainCard: CardData = {
+        id: `${ownerAddress}-${tokenId}`,
+        tokenId,
+        owner: ownerAddress,
+        commitment: raw.commitment?.toString() ?? "0x0",
+        revealedType: revealed !== 255 ? (revealed as VibeTypeIndex) : undefined,
+        paletteRevealed: Boolean(raw.palette_revealed),
+        mintTimestamp: Number(raw.mint_timestamp) * 1000,
+        personaName,
+        isAnchored: true,
+        battleRecord: { wins: 0, losses: Number(lossesRaw), total: Number(lossesRaw) },
+        traitReveal: {
+          barFillsAccurate: Boolean(traitRaw.bar_fills_accurate),
+          paletteRevealed: Boolean(traitRaw.palette_revealed),
+          typeRevealed: Boolean(traitRaw.type_revealed),
+          lossCount: Number(lossesRaw),
+        },
+        recentBattles: [],
+      };
+
+      return onchainCard;
     } catch (e) {
       console.error("useMyCard: chain fetch failed", e);
       return null;
@@ -148,17 +137,13 @@ export function useMyCard() {
 
     const local = loadLocalCard();
 
-    // If we already have an anchored card for this address with a valid token ID,
-    // use the cached version. Skip chain fetch during fresh scan/quiz sessions.
+    // If we have a valid anchored card for this address with a resolved tokenId, use it
     if (local?.isAnchored && local.owner.toLowerCase() === address.toLowerCase()) {
       const isFreshSession =
         sessionStorage.getItem("privacyScanDone") ||
         sessionStorage.getItem("quizVibeType");
       if (isFreshSession) return;
 
-      // Only skip chain fetch if we already have a valid small-integer token ID.
-      // Cards created during scan/quiz get timestamp-based IDs (>1M) that can't
-      // be used for battle — fall through to chain fetch in that case.
       const hasValidTokenId =
         local.tokenId !== undefined ||
         (() => {
@@ -167,26 +152,19 @@ export function useMyCard() {
           return Number.isInteger(last) && last > 0 && last < 1_000_000;
         })();
 
-      console.log("[useMyCard] local card found — isAnchored:", local.isAnchored, "id:", local.id, "tokenId:", local.tokenId, "hasValidTokenId:", hasValidTokenId);
       if (hasValidTokenId) {
         setCard(local);
         return;
       }
-      // Fall through: card is anchored but tokenId not yet resolved → fetch chain
     }
 
-    // Otherwise always check chain — covers: no card, unanchored card, different address
+    // Fetch from chain (single lookup, no loop)
     fetchFromChain(address).then((found) => {
       if (found) {
-        // Normally skip during a fresh scan/quiz session to avoid racing with
-        // the scan result. But if localStorage is completely empty (e.g. cleared
-        // by browser or by a previous bad stale-check), always restore — the user
-        // has a real onchain card and we must show it.
         const isFreshSession =
           sessionStorage.getItem("privacyScanDone") ||
           sessionStorage.getItem("quizVibeType");
         const hasNoLocalCard = !loadLocalCard();
-        console.log("[useMyCard] chain found card — isFreshSession:", !!isFreshSession, "hasNoLocalCard:", hasNoLocalCard, "will save:", !isFreshSession || hasNoLocalCard);
         if (!isFreshSession || hasNoLocalCard) {
           saveCardLocally(found);
           setCard(found);

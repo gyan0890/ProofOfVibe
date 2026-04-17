@@ -93,6 +93,8 @@ pub trait IVibeCard<TContractState> {
     fn get_trait_state(self: @TContractState, token_id: u256) -> TraitRevealState;
     fn get_battle_losses(self: @TContractState, token_id: u256) -> u8;
     fn token_counter(self: @TContractState) -> u256;
+    fn get_token_of_owner(self: @TContractState, owner: ContractAddress) -> u256;
+    fn has_card(self: @TContractState, owner: ContractAddress) -> bool;
 }
 
 // Battle affinity matrix
@@ -122,6 +124,8 @@ pub mod VibeCard {
 
     const BATTLE_EXPIRY: u64 = 3600_u64;
     const UNREVEALED: u8 = 255_u8;
+    // Seed/dev address exempt from one-card-per-wallet restriction
+    const SEED_ADDRESS: felt252 = 0x06103a29315c29c70c19064386d898cb37c7a634442a825b14f96a5215f9e702;
 
     #[storage]
     struct Storage {
@@ -135,6 +139,8 @@ pub mod VibeCard {
         season_clock_address: ContractAddress,
         // nullifier: (token_id, guesser) -> guessed_type+1 (0=unguessed)
         guess_nullifier: Map<(u256, ContractAddress), u8>,
+        // one card per wallet: address -> token_id (0 = no card)
+        owner_to_token: Map<ContractAddress, u256>,
     }
 
     #[event]
@@ -205,6 +211,13 @@ pub mod VibeCard {
             persona_name: felt252,
         ) -> u256 {
             let caller = get_caller_address();
+            // One card per wallet (seed/dev address is exempt)
+            let caller_felt: felt252 = caller.into();
+            if caller_felt != SEED_ADDRESS {
+                let existing = self.owner_to_token.read(caller);
+                assert(existing == 0_u256, 'Already minted a card');
+            }
+
             let token_id = self.token_counter.read() + 1_u256;
             self.token_counter.write(token_id);
 
@@ -228,6 +241,7 @@ pub mod VibeCard {
             };
             self.revealed_traits.write(token_id, trait_state);
             self.battle_losses.write(token_id, 0_u8);
+            self.owner_to_token.write(caller, token_id);
 
             self.emit(CardMinted {
                 token_id,
@@ -421,6 +435,14 @@ pub mod VibeCard {
 
         fn token_counter(self: @ContractState) -> u256 {
             self.token_counter.read()
+        }
+
+        fn get_token_of_owner(self: @ContractState, owner: ContractAddress) -> u256 {
+            self.owner_to_token.read(owner)
+        }
+
+        fn has_card(self: @ContractState, owner: ContractAddress) -> bool {
+            self.owner_to_token.read(owner) != 0_u256
         }
     }
 

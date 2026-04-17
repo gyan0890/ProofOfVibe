@@ -18,6 +18,13 @@ const VIBECARD_COUNTER_ABI = [
   },
   {
     type: "function",
+    name: "get_token_of_owner",
+    inputs: [{ name: "owner", type: "core::starknet::contract_address::ContractAddress" }],
+    outputs: [{ type: "core::integer::u256" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
     name: "get_card",
     inputs: [{ name: "token_id", type: "core::integer::u256" }],
     outputs: [
@@ -121,29 +128,22 @@ export function useMint() {
           saveCardLocally(newCard);
         }
 
-        // Resolve the real onchain token ID so battle page can use it directly.
+        // Resolve the real onchain token ID with a single O(1) lookup.
         // Clears scan session markers so useMyCard re-fetches on next render.
         sessionStorage.removeItem("privacyScanDone");
         sessionStorage.removeItem("quizVibeType");
         try {
+          await provider.waitForTransaction(result.transaction_hash, { retryInterval: 2000 });
           const contract = new Contract({
             abi: VIBECARD_COUNTER_ABI as any,
             address: CONTRACT_ADDRESSES.vibeCard,
             providerOrAccount: provider,
           });
-          const counterRaw = await contract.token_counter();
-          const total = Number(counterRaw);
-          const stripLeadingZeros = (a: string) =>
-            "0x" + a.toLowerCase().replace(/^0x0*/, "");
-          const normalizedAddress = stripLeadingZeros(address);
-          // Scan the last 20 tokens (covers all reasonable activity windows)
-          for (let id = total; id >= Math.max(1, total - 20); id--) {
-            const raw = await contract.get_card({ low: id, high: 0 });
-            const ownerHex = (() => { try { return num.toHex(raw.owner?.toString() ?? "0x0"); } catch { return raw.owner?.toString() ?? ""; } })();
-            if (stripLeadingZeros(ownerHex) === normalizedAddress) {
-              updateLocalCard({ id: `${address}-${id}`, tokenId: id });
-              break;
-            }
+          const tokenIdRaw = await contract.get_token_of_owner(address);
+          const tokenId = Number(tokenIdRaw);
+          if (tokenId > 0) {
+            updateLocalCard({ id: `${address}-${tokenId}`, tokenId });
+            console.log("[useMint] resolved tokenId:", tokenId);
           }
         } catch (resolveErr) {
           console.warn("[useMint] token ID resolution failed:", resolveErr);
