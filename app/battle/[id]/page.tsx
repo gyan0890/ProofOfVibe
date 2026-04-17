@@ -182,6 +182,13 @@ export default function BattlePage({ params }: { params: { id: string } }) {
           recentBattles: [],
         };
         setDefenderCard(card);
+
+        // Auto-fetch defender's X handle from Redis
+        try {
+          const res = await fetch(`/api/x-handle?address=${encodeURIComponent(card.owner)}`);
+          const { handle } = await res.json();
+          if (handle) setXHandle(`@${handle}`);
+        } catch {}
       } catch (e) {
         console.error("BattlePage: fetch defender failed", e);
       } finally {

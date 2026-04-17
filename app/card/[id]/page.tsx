@@ -79,11 +79,24 @@ export default function CardPage({ params }: { params: { id: string } }) {
   const [xHandle, setXHandle] = useState("");
   const [xSaved, setXSaved] = useState(false);
 
-  // Load X handle from local card
+  // Load X handle — first from localStorage (instant), then confirm from API
   useEffect(() => {
     const local = loadLocalCard();
     if (local?.xHandle) setXHandle(local.xHandle);
-  }, []);
+
+    // Also fetch from Redis in case it was set on another device
+    if (card?.owner) {
+      fetch(`/api/x-handle?address=${encodeURIComponent(card.owner)}`)
+        .then((r) => r.json())
+        .then(({ handle }) => {
+          if (handle) {
+            setXHandle(handle);
+            updateLocalCard({ xHandle: handle });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [card?.owner]);
 
   const [guessDistribution] = useState(() =>
     VIBE_TYPES.map((t) => ({ type: t, count: Math.floor(Math.random() * 30) }))
@@ -396,8 +409,17 @@ export default function CardPage({ params }: { params: { id: string } }) {
                           className="flex-1 px-3 py-2 rounded-lg text-xs font-ui text-white/70 bg-white/5 border border-white/10 focus:outline-none focus:border-white/20 placeholder-white/20"
                         />
                         <button
-                          onClick={() => {
-                            updateLocalCard({ xHandle: xHandle.replace(/^@/, "") });
+                          onClick={async () => {
+                            const cleaned = xHandle.replace(/^@/, "").trim();
+                            updateLocalCard({ xHandle: cleaned });
+                            // Also persist to Redis so challengers can read it
+                            if (card?.owner) {
+                              await fetch("/api/x-handle", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ address: card.owner, handle: cleaned }),
+                              }).catch(() => {});
+                            }
                             setXSaved(true);
                             setTimeout(() => setXSaved(false), 2000);
                           }}
