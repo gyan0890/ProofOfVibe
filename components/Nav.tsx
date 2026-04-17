@@ -14,7 +14,17 @@ export function Nav() {
   const { disconnect } = useDisconnect();
   const [showMenu, setShowMenu] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [navHandle, setNavHandle] = useState("");
+  const [navHandleSaved, setNavHandleSaved] = useState(false);
   const isConnected = status === "connected" && !!address;
+
+  // Load X handle when wallet connects
+  if (typeof window !== "undefined" && isConnected && address && !navHandle) {
+    fetch(`/api/x-handle?address=${encodeURIComponent(address)}`)
+      .then((r) => r.json())
+      .then(({ handle }) => { if (handle && !navHandle) setNavHandle(handle); })
+      .catch(() => {});
+  }
 
   const links = [
     { href: "/leaderboard", label: "⚔️ Battle" },
@@ -112,6 +122,41 @@ export function Nav() {
                 >
                   ⚔️ Battle
                 </Link>
+                <div className="border-t border-white/8 my-1" />
+                {/* X handle */}
+                <div className="px-3 py-2">
+                  <p className="text-[9px] text-white/25 font-ui tracking-wider uppercase mb-1.5">𝕏 Handle</p>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="@yourhandle"
+                      value={navHandle}
+                      onChange={(e) => { setNavHandle(e.target.value); setNavHandleSaved(false); }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 min-w-0 px-2 py-1.5 rounded-md text-[11px] font-ui text-white/70 bg-white/5 border border-white/10 focus:outline-none focus:border-white/20 placeholder-white/20"
+                    />
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const cleaned = navHandle.replace(/^@/, "").trim();
+                        if (!address) return;
+                        await fetch("/api/x-handle", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ address, handle: cleaned }),
+                        }).catch(() => {});
+                        const { updateLocalCard } = await import("@/lib/storage");
+                        updateLocalCard({ xHandle: cleaned });
+                        setNavHandleSaved(true);
+                        setTimeout(() => setNavHandleSaved(false), 2000);
+                      }}
+                      className="shrink-0 px-2 py-1.5 rounded-md text-[11px] font-card text-white/60 hover:text-white transition-colors"
+                      style={{ background: "rgba(29,161,242,0.1)", border: "1px solid rgba(29,161,242,0.2)" }}
+                    >
+                      {navHandleSaved ? "✓" : "Save"}
+                    </button>
+                  </div>
+                </div>
                 <div className="border-t border-white/8 my-1" />
                 <button
                   onClick={() => { clearLocalCard(); disconnect(); setShowMenu(false); }}

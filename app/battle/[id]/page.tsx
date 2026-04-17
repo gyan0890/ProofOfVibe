@@ -112,7 +112,8 @@ export default function BattlePage({ params }: { params: { id: string } }) {
   const [onchainBattle, setOnchainBattle] = useState<OnchainBattle | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [xHandle, setXHandle] = useState("");
+  const [xHandle, setXHandle] = useState(""); // defender handle
+  const [myXHandle, setMyXHandle] = useState(""); // challenger handle
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -121,6 +122,16 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     if (!local) return;
     setChallengerCard(local);
     setChallengerTokenId(resolveTokenId(local));
+
+    // Pre-fill challenger's own X handle
+    if (local.xHandle) {
+      setMyXHandle(`@${local.xHandle}`);
+    } else if (local.owner) {
+      fetch(`/api/x-handle?address=${encodeURIComponent(local.owner)}`)
+        .then((r) => r.json())
+        .then(({ handle }) => { if (handle) setMyXHandle(`@${handle}`); })
+        .catch(() => {});
+    }
   }, []);
 
   // Sync from useMyCard whenever it resolves a better tokenId
@@ -265,10 +276,11 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     setStep("resolved");
   }
 
-  // Build Twitter share URL for the "Notify on X" button shown after committing
-  function buildTweetUrl(defenderName: string, cardUrl: string, xHandle?: string) {
-    const tag = xHandle ? ` @${xHandle.replace(/^@/, "")}` : "";
-    const text = `I just challenged${tag} "${defenderName}" on Proof of Vibe! Defend your card 👻\n${cardUrl} #ProofOfVibe #Starknet`;
+  // Build Twitter share URL — includes both challenger and defender handles when available
+  function buildTweetUrl(defenderName: string, cardUrl: string, defHandle?: string, chalHandle?: string) {
+    const defTag = defHandle ? ` @${defHandle.replace(/^@/, "")}` : ` "${defenderName}"`;
+    const chalTag = chalHandle ? `@${chalHandle.replace(/^@/, "")} ` : "";
+    const text = `${chalTag}challenged${defTag} on Proof of Vibe! Defend your card 👻\n${cardUrl} #ProofOfVibe #Starknet`;
     return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
   }
 
@@ -470,33 +482,52 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                 </button>
               )}
 
-              {/* ── Notify defender on X ── */}
-              <div className="flex flex-col items-center gap-2 mt-4 w-full max-w-xs">
+              {/* ── Share on X ── */}
+              <div className="flex flex-col items-center gap-3 mt-4 w-full max-w-xs">
                 <p className="text-[10px] font-ui text-white/25 tracking-wider uppercase">
-                  Know their X handle? Tag them
+                  Share on 𝕏 to notify the defender
                 </p>
                 <div className="flex gap-2 w-full">
                   <input
                     type="text"
-                    placeholder="@handle (optional)"
+                    placeholder="Your @handle"
+                    value={myXHandle}
+                    onChange={(e) => {
+                      setMyXHandle(e.target.value);
+                      // Persist for next time
+                      const local = loadLocalCard();
+                      if (local?.owner) {
+                        fetch("/api/x-handle", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ address: local.owner, handle: e.target.value.replace(/^@/, "") }),
+                        }).catch(() => {});
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 rounded-lg text-xs font-ui text-white/70 bg-white/5 border border-white/10 focus:outline-none focus:border-white/20 placeholder-white/20"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Defender @handle"
                     value={xHandle}
                     onChange={(e) => setXHandle(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-lg text-xs font-ui text-white/70 bg-white/5 border border-white/10 focus:outline-none focus:border-white/20 placeholder-white/20"
                   />
-                  <a
-                    href={buildTweetUrl(
-                      defenderCard?.personaName ?? `Card #${defenderTokenId}`,
-                      `https://proof-of-vibe-kohl.vercel.app/card/${params.id}`,
-                      xHandle || undefined
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="min-touch px-3 py-2 rounded-lg text-xs font-card text-white transition-all hover:scale-105 flex items-center gap-1.5"
-                    style={{ background: "rgba(29,161,242,0.15)", border: "1px solid rgba(29,161,242,0.3)" }}
-                  >
-                    𝕏 Post
-                  </a>
                 </div>
+                <a
+                  href={buildTweetUrl(
+                    defenderCard?.personaName ?? `Card #${defenderTokenId}`,
+                    `https://proof-of-vibe-kohl.vercel.app/card/${params.id}`,
+                    xHandle || undefined,
+                    myXHandle || undefined
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-touch w-full px-4 py-2.5 rounded-xl text-xs font-card text-white text-center transition-all hover:scale-105 flex items-center justify-center gap-2"
+                  style={{ background: "rgba(29,161,242,0.15)", border: "1px solid rgba(29,161,242,0.3)" }}
+                >
+                  𝕏 Post challenge
+                </a>
               </div>
             </motion.div>
           )}
