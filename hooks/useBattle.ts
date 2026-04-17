@@ -241,6 +241,39 @@ export function useBattle() {
   );
 
   // -------------------------------------------------------------------------
+  // claimExpiredBattle — challenger calls this after the 1h window passes
+  // -------------------------------------------------------------------------
+  const claimExpiredBattle = useCallback(
+    async (battleId: number): Promise<{ txHash: string } | null> => {
+      if (!address) {
+        setError("Wallet not connected");
+        return null;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const call = {
+          contractAddress: CONTRACT_ADDRESSES.vibeCard as `0x${string}`,
+          entrypoint: "claim_expired_battle",
+          calldata: [{ low: battleId, high: 0 }],
+        };
+
+        const result = await sendAsync([call]);
+        if (!result?.transaction_hash) return null;
+
+        return { txHash: result.transaction_hash };
+      } catch (e: any) {
+        console.error("useBattle.claimExpiredBattle error:", e);
+        setError(e?.message ?? "claimExpiredBattle failed");
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [address, sendAsync]
+  );
+
+  // -------------------------------------------------------------------------
   // getBattle — read-only, no state mutation
   // -------------------------------------------------------------------------
   const getBattle = useCallback(
@@ -280,6 +313,7 @@ export function useBattle() {
     initiateBattle,
     submitDefense,
     resolveBattle,
+    claimExpiredBattle,
     getBattle,
   };
 }

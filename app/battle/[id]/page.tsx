@@ -92,7 +92,7 @@ interface PendingBattle {
 export default function BattlePage({ params }: { params: { id: string } }) {
   const { address } = useAccount();
   const { provider } = useProvider();
-  const { initiateBattle, resolveBattle, getBattle, loading: battleLoading, error: battleError } = useBattle();
+  const { initiateBattle, resolveBattle, claimExpiredBattle, getBattle, loading: battleLoading, error: battleError } = useBattle();
 
   // useMyCard gives us the canonical version with a resolved tokenId.
   // The battle page reads localStorage once on mount, but if the local card
@@ -251,6 +251,23 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     setActiveBattle(pending);
     setTxHash(result.txHash);
     setStep("waiting");
+  }
+
+  async function handleClaimExpired() {
+    if (!activeBattle || activeBattle.battleId === 0) return;
+    setLocalError(null);
+
+    const result = await claimExpiredBattle(activeBattle.battleId);
+
+    if (!result) {
+      setLocalError(battleError ?? "Claim failed");
+      return;
+    }
+
+    setTxHash(result.txHash);
+    const updated = await getBattle(activeBattle.battleId);
+    if (updated) setOnchainBattle(updated);
+    setStep("resolved");
   }
 
   async function handleResolve() {
@@ -473,12 +490,12 @@ export default function BattlePage({ params }: { params: { id: string } }) {
 
               {onchainBattle && activeBattle.battleId > 0 && onchainBattle.initiatedAt > 0 && Date.now() > onchainBattle.initiatedAt + 3_600_000 && (
                 <button
-                  onClick={handleResolve}
+                  onClick={handleClaimExpired}
                   disabled={battleLoading}
                   className="min-touch px-6 py-2.5 rounded-xl font-card text-sm text-white transition-all hover:scale-105 disabled:opacity-50"
                   style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)" }}
                 >
-                  Claim win (expired)
+                  {battleLoading ? "Claiming…" : "Claim win (expired)"}
                 </button>
               )}
 
