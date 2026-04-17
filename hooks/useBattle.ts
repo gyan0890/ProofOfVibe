@@ -112,6 +112,10 @@ export function useBattle() {
         // Parse battle_id from receipt events
         let battleId = 0;
         try {
+          // Wait for the transaction to be confirmed before reading the receipt.
+          // getTransactionReceipt immediately after sendAsync returns "tx not found"
+          // because the tx is still pending in the mempool.
+          await provider.waitForTransaction(txHash, { retryInterval: 2000 });
           const receipt = await provider.getTransactionReceipt(txHash);
           const battleInitiatedKey = hash.getSelectorFromName("BattleInitiated");
           const events = (receipt as any).events as Array<{ keys: string[]; data: string[] }>;
