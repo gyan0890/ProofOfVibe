@@ -372,8 +372,10 @@ export default function RevealPage() {
       setStep("actions");
       animationStarted.current = true;
     } else if (!freshSession) {
-      // Returning user — surface as a link, don't skip the scan flow
-      setExistingCard(onchainCard);
+      // Returning user — show their onchain card directly
+      setCard(onchainCard);
+      setStep("actions");
+      animationStarted.current = true;
     }
   }, [onchainCard]);
 
