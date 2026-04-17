@@ -133,11 +133,13 @@ export function useMint() {
           });
           const counterRaw = await contract.token_counter();
           const total = Number(counterRaw);
-          const normalizedAddress = address.toLowerCase();
+          const stripLeadingZeros = (a: string) =>
+            "0x" + a.toLowerCase().replace(/^0x0*/, "");
+          const normalizedAddress = stripLeadingZeros(address);
           // Scan the last 20 tokens (covers all reasonable activity windows)
           for (let id = total; id >= Math.max(1, total - 20); id--) {
             const raw = await contract.get_card({ low: id, high: 0 });
-            if (raw.owner?.toString().toLowerCase() === normalizedAddress) {
+            if (stripLeadingZeros(raw.owner?.toString() ?? "") === normalizedAddress) {
               updateLocalCard({ id: `${address}-${id}`, tokenId: id });
               break;
             }

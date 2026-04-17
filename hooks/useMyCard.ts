@@ -81,12 +81,16 @@ export function useMyCard() {
       const total = Number(counterRaw);
       if (total === 0) return null;
 
-      // Search for the card owned by this address
-      const normalizedOwner = ownerAddress.toLowerCase();
+      // Search for the card owned by this address.
+      // Strip leading zeros before comparing — the wallet returns "0x0612..."
+      // but the contract may return "0x612..." for the same address.
+      const stripLeadingZeros = (a: string) =>
+        "0x" + a.toLowerCase().replace(/^0x0*/, "");
+      const normalizedOwner = stripLeadingZeros(ownerAddress);
       for (let id = 1; id <= total; id++) {
         const raw = await contract.get_card({ low: id, high: 0 });
         const rawOwner: string = raw.owner?.toString() ?? "";
-        if (rawOwner.toLowerCase() !== normalizedOwner) continue;
+        if (stripLeadingZeros(rawOwner) !== normalizedOwner) continue;
 
         const [traitRaw, lossesRaw] = await Promise.all([
           contract.get_trait_state({ low: id, high: 0 }),
