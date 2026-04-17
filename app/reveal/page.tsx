@@ -204,7 +204,9 @@ export default function RevealPage() {
     // Cards restored from chain (useMyCard) have tokenId set even without
     // a privacyProfile, so we must preserve them or they get wiped every visit.
     const stale = loadLocalCard();
+    console.log("[reveal] mount — local card:", stale ? { id: stale.id, isAnchored: stale.isAnchored, tokenId: stale.tokenId, hasMintTx: !!stale.mintTxHash, hasProfile: !!stale.privacyProfile } : null);
     if (stale?.isAnchored && !stale.privacyProfile && !stale.tokenId && !stale.mintTxHash) {
+      console.log("[reveal] clearing stale card — no proof of mint");
       clearLocalCard();
     }
 
@@ -350,6 +352,7 @@ export default function RevealPage() {
 
   // ── Onchain card loads ───────────────────────────────────────────────────
   useEffect(() => {
+    console.log("[reveal] onchainCard updated:", onchainCard ? { id: onchainCard.id, tokenId: onchainCard.tokenId, isAnchored: onchainCard.isAnchored } : null);
     if (!onchainCard) return;
 
     // If a fresh scan card was built this session (ref is sync — never stale),

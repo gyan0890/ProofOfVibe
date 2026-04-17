@@ -87,9 +87,11 @@ export function useMyCard() {
       const stripLeadingZeros = (a: string) =>
         "0x" + a.toLowerCase().replace(/^0x0*/, "");
       const normalizedOwner = stripLeadingZeros(ownerAddress);
+      console.log("[useMyCard] scanning chain — total tokens:", total, "looking for:", normalizedOwner);
       for (let id = 1; id <= total; id++) {
         const raw = await contract.get_card({ low: id, high: 0 });
         const rawOwner: string = raw.owner?.toString() ?? "";
+        console.log(`[useMyCard] token #${id} owner raw="${rawOwner}" normalized="${stripLeadingZeros(rawOwner)}" match=${stripLeadingZeros(rawOwner) === normalizedOwner}`);
         if (stripLeadingZeros(rawOwner) !== normalizedOwner) continue;
 
         const [traitRaw, lossesRaw] = await Promise.all([
@@ -128,6 +130,7 @@ export function useMyCard() {
 
         return onchainCard;
       }
+      console.log("[useMyCard] no card found on chain for", ownerAddress);
       return null;
     } catch (e) {
       console.error("useMyCard: chain fetch failed", e);
@@ -161,6 +164,7 @@ export function useMyCard() {
           return Number.isInteger(last) && last > 0 && last < 1_000_000;
         })();
 
+      console.log("[useMyCard] local card found — isAnchored:", local.isAnchored, "id:", local.id, "tokenId:", local.tokenId, "hasValidTokenId:", hasValidTokenId);
       if (hasValidTokenId) {
         setCard(local);
         return;
@@ -179,6 +183,7 @@ export function useMyCard() {
           sessionStorage.getItem("privacyScanDone") ||
           sessionStorage.getItem("quizVibeType");
         const hasNoLocalCard = !loadLocalCard();
+        console.log("[useMyCard] chain found card — isFreshSession:", !!isFreshSession, "hasNoLocalCard:", hasNoLocalCard, "will save:", !isFreshSession || hasNoLocalCard);
         if (!isFreshSession || hasNoLocalCard) {
           saveCardLocally(found);
           setCard(found);
