@@ -471,7 +471,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
               <p className="text-white/30 text-sm font-ui">Battle #{activeBattle.battleId}</p>
               <p className="text-white/20 text-xs font-ui">Expires in ~1h if no response</p>
 
-              {onchainBattle && Date.now() > onchainBattle.initiatedAt + 3_600_000 && (
+              {onchainBattle && activeBattle.battleId > 0 && onchainBattle.initiatedAt > 0 && Date.now() > onchainBattle.initiatedAt + 3_600_000 && (
                 <button
                   onClick={handleResolve}
                   disabled={battleLoading}

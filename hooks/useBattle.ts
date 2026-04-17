@@ -115,13 +115,21 @@ export function useBattle() {
           const receipt = await provider.getTransactionReceipt(txHash);
           const battleInitiatedKey = hash.getSelectorFromName("BattleInitiated");
           const events = (receipt as any).events as Array<{ keys: string[]; data: string[] }>;
+          console.log("[useBattle] receipt events:", JSON.stringify(events?.slice(0, 3)));
           const ev = events?.find(
             (e) =>
               e.keys &&
               e.keys[0]?.toLowerCase() === battleInitiatedKey.toLowerCase()
           );
-          if (ev && ev.keys[1]) {
-            battleId = Number(BigInt(ev.keys[1]));
+          if (ev) {
+            // battle_id (u256) may be in keys[1] (if indexed) or data[0]/data[1] (non-indexed low/high)
+            const idHex = ev.keys[1] ?? ev.data?.[0];
+            if (idHex) {
+              battleId = Number(BigInt(idHex));
+            }
+            console.log("[useBattle] BattleInitiated event found, keys:", ev.keys, "data:", ev.data, "→ battleId:", battleId);
+          } else {
+            console.warn("[useBattle] BattleInitiated event NOT found in receipt. Events:", events?.map(e => e.keys?.[0]));
           }
         } catch (parseErr) {
           console.warn("useBattle: could not parse battleId from receipt", parseErr);
