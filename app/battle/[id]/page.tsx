@@ -278,9 +278,9 @@ export default function BattlePage({ params }: { params: { id: string } }) {
 
   // Build Twitter share URL — includes both challenger and defender handles when available
   function buildTweetUrl(defenderName: string, cardUrl: string, defHandle?: string, chalHandle?: string) {
-    const defTag = defHandle ? ` @${defHandle.replace(/^@/, "")}` : ` "${defenderName}"`;
-    const chalTag = chalHandle ? `@${chalHandle.replace(/^@/, "")} ` : "";
-    const text = `${chalTag}challenged${defTag} on Proof of Vibe! Defend your card 👻\n${cardUrl} #ProofOfVibe #Starknet`;
+    const defTag = defHandle ? `@${defHandle.replace(/^@/, "")}` : `"${defenderName}"`;
+    const subject = chalHandle ? `@${chalHandle.replace(/^@/, "")}` : "I";
+    const text = `${subject} challenged ${defTag} on Proof of Vibe! Defend your card and save your privacy 👻\n${cardUrl} #ProofOfVibe #Starknet`;
     return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
   }
 
