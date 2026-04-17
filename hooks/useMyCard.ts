@@ -167,13 +167,15 @@ export function useMyCard() {
     // Otherwise always check chain — covers: no card, unanchored card, different address
     fetchFromChain(address).then((found) => {
       if (found) {
-        // Don't touch localStorage or React state during a fresh scan/quiz session —
-        // doing so populates onchainCard, which can race with the scan result and
-        // cause the stale-closure bug where the onchain card overwrites the scan card.
+        // Normally skip during a fresh scan/quiz session to avoid racing with
+        // the scan result. But if localStorage is completely empty (e.g. cleared
+        // by browser or by a previous bad stale-check), always restore — the user
+        // has a real onchain card and we must show it.
         const isFreshSession =
           sessionStorage.getItem("privacyScanDone") ||
           sessionStorage.getItem("quizVibeType");
-        if (!isFreshSession) {
+        const hasNoLocalCard = !loadLocalCard();
+        if (!isFreshSession || hasNoLocalCard) {
           saveCardLocally(found);
           setCard(found);
         }

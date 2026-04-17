@@ -199,12 +199,12 @@ export default function RevealPage() {
 
   // ── Mount: check for existing card ──────────────────────────────────────
   useEffect(() => {
-    // One-time migration: clear any card that was falsely marked anchored
-    // (i.e. isAnchored=true but no privacyProfile AND no quiz-based card).
-    // These were written by old buggy mint code that ran updateLocalCard before
-    // confirming a tx hash. Clearing here ensures a clean slate on next scan.
+    // Clear only cards that are falsely marked anchored with zero proof:
+    // no privacyProfile, no tokenId, and no mintTxHash.
+    // Cards restored from chain (useMyCard) have tokenId set even without
+    // a privacyProfile, so we must preserve them or they get wiped every visit.
     const stale = loadLocalCard();
-    if (stale?.isAnchored && !stale.privacyProfile) {
+    if (stale?.isAnchored && !stale.privacyProfile && !stale.tokenId && !stale.mintTxHash) {
       clearLocalCard();
     }
 
