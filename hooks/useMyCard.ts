@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAccount, useProvider } from "@starknet-react/core";
-import { Contract, shortString } from "starknet";
+import { Contract, shortString, num } from "starknet";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { loadLocalCard, saveCardLocally, updateLocalCard } from "@/lib/storage";
@@ -90,8 +90,11 @@ export function useMyCard() {
       console.log("[useMyCard] scanning chain — total tokens:", total, "looking for:", normalizedOwner);
       for (let id = 1; id <= total; id++) {
         const raw = await contract.get_card({ low: id, high: 0 });
-        const rawOwner: string = raw.owner?.toString() ?? "";
-        console.log(`[useMyCard] token #${id} owner raw="${rawOwner}" normalized="${stripLeadingZeros(rawOwner)}" match=${stripLeadingZeros(rawOwner) === normalizedOwner}`);
+        // num.toHex handles decimal, hex, and BigInt — always gives "0x..." hex string
+        const rawOwner: string = (() => {
+          try { return num.toHex(raw.owner?.toString() ?? "0x0"); } catch { return raw.owner?.toString() ?? ""; }
+        })();
+        console.log(`[useMyCard] token #${id} owner raw="${raw.owner?.toString()}" asHex="${rawOwner}" normalized="${stripLeadingZeros(rawOwner)}" match=${stripLeadingZeros(rawOwner) === normalizedOwner}`);
         if (stripLeadingZeros(rawOwner) !== normalizedOwner) continue;
 
         const [traitRaw, lossesRaw] = await Promise.all([

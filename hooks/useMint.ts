@@ -6,7 +6,7 @@ import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { generateSalt, generatePersonaName } from "@/lib/utils";
 import { saveCardLocally, updateLocalCard, loadLocalCard } from "@/lib/storage";
 import { CardData, VibeTypeIndex } from "@/lib/types";
-import { hash, shortString, CallData, Contract } from "starknet";
+import { hash, shortString, CallData, Contract, num } from "starknet";
 
 const VIBECARD_COUNTER_ABI = [
   {
@@ -139,7 +139,8 @@ export function useMint() {
           // Scan the last 20 tokens (covers all reasonable activity windows)
           for (let id = total; id >= Math.max(1, total - 20); id--) {
             const raw = await contract.get_card({ low: id, high: 0 });
-            if (stripLeadingZeros(raw.owner?.toString() ?? "") === normalizedAddress) {
+            const ownerHex = (() => { try { return num.toHex(raw.owner?.toString() ?? "0x0"); } catch { return raw.owner?.toString() ?? ""; } })();
+            if (stripLeadingZeros(ownerHex) === normalizedAddress) {
               updateLocalCard({ id: `${address}-${id}`, tokenId: id });
               break;
             }
