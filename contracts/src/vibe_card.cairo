@@ -432,26 +432,29 @@ pub mod VibeCard {
 
             let mut state = self.revealed_traits.read(token_id);
 
+            // Step 1 — first identity hint leaks
             if losses >= 1_u8 && state.trait_1_word == 0 {
                 state.trait_1_word = 'trait_1'; // oracle sets actual word
                 self.emit(TraitRevealed { token_id, reveal_level: 1_u8 });
             }
+            // Step 2 — second hint + privacy bars become accurate
             if losses >= 2_u8 && state.trait_2_word == 0 {
                 state.trait_2_word = 'trait_2';
                 self.emit(TraitRevealed { token_id, reveal_level: 2_u8 });
             }
-            if losses >= 3_u8 && !state.bar_fills_accurate {
+            if losses >= 2_u8 && !state.bar_fills_accurate {
                 state.bar_fills_accurate = true;
                 self.emit(TraitRevealed { token_id, reveal_level: 3_u8 });
             }
-            if losses >= 5_u8 && !state.palette_revealed {
+            // Step 3 — card colour palette revealed (big visual reveal)
+            if losses >= 3_u8 && !state.palette_revealed {
                 state.palette_revealed = true;
-                self.emit(TraitRevealed { token_id, reveal_level: 5_u8 });
+                self.emit(TraitRevealed { token_id, reveal_level: 4_u8 });
             }
 
             self.revealed_traits.write(token_id, state);
 
-            if losses >= 8_u8 {
+            if losses >= 5_u8 {
                 // Full auto-reveal — requires salt from IPFS
                 // Emit event for oracle to trigger reveal
                 self.emit(TraitRevealed { token_id, reveal_level: 8_u8 });

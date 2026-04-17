@@ -300,6 +300,124 @@ export default function CardPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
+            {/* ── Exposure Tracker ──────────────────────────────── */}
+            {card.isAnchored && (() => {
+              const losses = card.traitReveal.lossCount;
+              const milestones = [
+                {
+                  lossThreshold: 1,
+                  label: "1st Hint",
+                  detail: "Identity dimension leaks",
+                  icon: "🔓",
+                  reached: losses >= 1,
+                  color: "#a78bfa",
+                },
+                {
+                  lossThreshold: 2,
+                  label: "Stats + 2nd Hint",
+                  detail: "Second hint & scores go accurate",
+                  icon: "📊",
+                  reached: losses >= 2,
+                  color: "#7F77DD",
+                },
+                {
+                  lossThreshold: 3,
+                  label: "Palette Cracked",
+                  detail: "Card colour revealed",
+                  icon: "🎨",
+                  reached: losses >= 3,
+                  color: "#F59E0B",
+                },
+              ];
+              const reached = milestones.filter(m => m.reached).length;
+              const pct = reached === 0 ? 0 : reached === 3 ? 100 : (milestones[reached - 1].lossThreshold / 3) * 100;
+              const nextMilestone = milestones.find(m => !m.reached);
+
+              return (
+                <div
+                  className="p-5 rounded-2xl"
+                  style={{ background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.12)" }}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-card font-medium text-white/70 text-sm">Privacy Cracked</h3>
+                    <span className="text-xs font-ui px-2 py-0.5 rounded-full" style={{ background: losses === 0 ? "rgba(255,255,255,0.05)" : "rgba(239,68,68,0.12)", color: losses === 0 ? "rgba(255,255,255,0.3)" : "#ef4444" }}>
+                      {losses} {losses === 1 ? "loss" : "losses"}
+                    </span>
+                  </div>
+
+                  {/* Progress dots + connecting line */}
+                  <div className="relative flex items-start justify-between mb-5 px-1">
+                    {/* Base line */}
+                    <div className="absolute left-4 right-4 top-4 h-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+                    {/* Filled line */}
+                    <motion.div
+                      className="absolute left-4 top-4 h-px"
+                      style={{ background: "linear-gradient(90deg, #a78bfa, #D4537E)" }}
+                      initial={{ width: "0%" }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+
+                    {milestones.map((m, i) => (
+                      <div key={i} className="relative flex flex-col items-center gap-1.5 z-10" style={{ width: "25%" }}>
+                        <motion.div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-card font-bold"
+                          style={{
+                            background: m.reached ? `${m.color}22` : "rgba(255,255,255,0.05)",
+                            border: `1px solid ${m.reached ? m.color + "66" : "rgba(255,255,255,0.1)"}`,
+                            color: m.reached ? m.color : "rgba(255,255,255,0.2)",
+                          }}
+                          animate={m.reached ? { scale: [1, 1.15, 1] } : {}}
+                          transition={{ duration: 0.4 }}
+                        >
+                          {m.reached ? m.icon : m.lossThreshold}
+                        </motion.div>
+                        <span className="text-[9px] font-ui text-center leading-tight" style={{ color: m.reached ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)" }}>
+                          {m.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Exposed items */}
+                  {losses > 0 && (
+                    <div className="flex flex-col gap-1.5 border-t pt-3 mb-3" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                      {milestones.filter(m => m.reached).map((m, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="flex items-center gap-2 text-xs font-ui"
+                        >
+                          <span style={{ color: m.color }}>{m.icon}</span>
+                          <span className="text-white/60">{m.detail}</span>
+                          <span className="ml-auto text-white/20">after {m.lossThreshold} {m.lossThreshold === 1 ? "loss" : "losses"}</span>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* What's still hidden */}
+                  {nextMilestone && losses === 0 && (
+                    <p className="text-[10px] font-ui" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      First battle loss exposes the identity dimension.
+                    </p>
+                  )}
+                  {nextMilestone && losses > 0 && (
+                    <p className="text-[10px] font-ui" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      {nextMilestone.lossThreshold - losses} more {nextMilestone.lossThreshold - losses === 1 ? "loss" : "losses"} until {nextMilestone.detail.toLowerCase()}
+                    </p>
+                  )}
+                  {reached === 3 && (
+                    <p className="text-[10px] font-ui text-red-400/60">
+                      🔴 Fully cracked — vibe type exposed at season end
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Community Read */}
             <div
               className="p-5 rounded-2xl"
