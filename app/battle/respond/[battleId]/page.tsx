@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useAccount, useProvider } from "@starknet-react/core";
-import { Contract, shortString } from "starknet";
+import { Contract, shortString, num } from "starknet";
 import { VibeCard } from "@/components/VibeCard";
 import { CardData, VibeTypeIndex } from "@/lib/types";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
@@ -86,7 +86,7 @@ export default function RespondPage({ params }: { params: { battleId: string } }
           ]);
           const revealed = Number(raw.revealed_type);
           const losses = Number(lossesRaw);
-          const owner: string = raw.owner?.toString() ?? "0x0";
+          const owner: string = raw.owner != null ? num.toHex(raw.owner.toString()) : "0x0";
           const personaName = (() => {
             try { return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0"); }
             catch { return `Vibe #${tokenId}`; }
@@ -116,7 +116,12 @@ export default function RespondPage({ params }: { params: { battleId: string } }
         setChallengerCard(cCard);
 
         // Check the connected wallet owns the defender card
-        if (address && dCard.owner.toLowerCase() !== address.toLowerCase()) {
+        // Compare as BigInt: num.toHex may still differ in zero-padding
+        const ownsDefender = (() => {
+          if (!address) return false;
+          try { return BigInt(dCard.owner) === BigInt(address); } catch { return false; }
+        })();
+        if (!ownsDefender) {
           setStep("not_defender");
           return;
         }
