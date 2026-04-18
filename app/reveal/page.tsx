@@ -12,7 +12,6 @@ import { SHARE_TWEET_TEMPLATE } from "@/lib/constants";
 import { loadLocalCard, saveCardLocally, updateLocalCard, clearLocalCard } from "@/lib/storage";
 import { useMint } from "@/hooks/useMint";
 import { useMyCard } from "@/hooks/useMyCard";
-import { usePendingChallenges } from "@/hooks/usePendingChallenges";
 import { usePrivacyScore } from "@/hooks/usePrivacyScore";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 
@@ -161,7 +160,6 @@ export default function RevealPage() {
 
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
   const myTokenId = onchainCard?.tokenId ?? null;
-  const { challenges: pendingChallenges, toResolve: battlesToResolve } = usePendingChallenges(myTokenId);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const animationStarted = useRef(false);
   // Tracks whether the user has built a card from a fresh scan this session.
@@ -482,58 +480,6 @@ export default function RevealPage() {
           open={showConnectModal}
           onClose={() => setShowConnectModal(false)}
         />
-
-        {/* ── Battle action banner (scan/options view) ── */}
-        {(pendingChallenges.length > 0 || battlesToResolve.length > 0) && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="fixed top-16 left-0 right-0 z-40 flex flex-col items-center gap-1 px-4 pointer-events-none"
-          >
-            {/* Defender: battles I need to respond to */}
-            {pendingChallenges.length > 0 && (
-              <div
-                className="flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-lg pointer-events-auto"
-                style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", backdropFilter: "blur(12px)" }}
-              >
-                <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}>⚔️</motion.span>
-                <span className="text-sm font-card text-white">
-                  {pendingChallenges.length === 1 ? "You've been challenged!" : `${pendingChallenges.length} challenges waiting!`}
-                </span>
-                <div className="flex gap-2">
-                  {pendingChallenges.map((c) => (
-                    <Link key={c.battleId} href={`/battle/respond/${c.battleId}`}
-                      className="px-3 py-1 rounded-lg text-xs font-card font-medium text-white transition-all hover:scale-105"
-                      style={{ background: "rgba(239,68,68,0.5)", border: "1px solid rgba(239,68,68,0.6)" }}>
-                      Respond #{c.battleId}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* Challenger: defender committed, ready to resolve */}
-            {battlesToResolve.length > 0 && (
-              <div
-                className="flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-lg pointer-events-auto"
-                style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)", backdropFilter: "blur(12px)" }}
-              >
-                <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}>⚡</motion.span>
-                <span className="text-sm font-card text-white">
-                  {battlesToResolve.length === 1 ? "Defender responded — resolve now!" : `${battlesToResolve.length} battles ready to resolve!`}
-                </span>
-                <div className="flex gap-2">
-                  {battlesToResolve.map((b) => (
-                    <Link key={b.battleId} href={`/battle/${b.battleId}`}
-                      className="px-3 py-1 rounded-lg text-xs font-card font-medium text-white transition-all hover:scale-105"
-                      style={{ background: "rgba(245,158,11,0.5)", border: "1px solid rgba(245,158,11,0.6)" }}>
-                      Resolve #{b.battleId}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
 
         <AnimatePresence mode="wait">
           {/* ── Scanning in progress ───────────────────────────────────── */}
@@ -884,58 +830,6 @@ export default function RevealPage() {
 
       {showFaucetModal && address && (
         <FaucetModal address={address} onClose={() => setShowFaucetModal(false)} onConfirm={doMint} />
-      )}
-
-      {/* ── Battle action banner ───────────────────────────────────── */}
-      {(pendingChallenges.length > 0 || battlesToResolve.length > 0) && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed top-16 left-0 right-0 z-40 flex flex-col items-center gap-1 px-4 pointer-events-none"
-        >
-          {/* Defender */}
-          {pendingChallenges.length > 0 && (
-            <div
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-lg pointer-events-auto"
-              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", backdropFilter: "blur(12px)" }}
-            >
-              <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}>⚔️</motion.span>
-              <span className="text-sm font-card text-white">
-                {pendingChallenges.length === 1 ? "You've been challenged!" : `${pendingChallenges.length} challenges waiting!`}
-              </span>
-              <div className="flex gap-2">
-                {pendingChallenges.map((c) => (
-                  <Link key={c.battleId} href={`/battle/respond/${c.battleId}`}
-                    className="px-3 py-1 rounded-lg text-xs font-card font-medium text-white transition-all hover:scale-105"
-                    style={{ background: "rgba(239,68,68,0.5)", border: "1px solid rgba(239,68,68,0.6)" }}>
-                    Respond #{c.battleId}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-          {/* Challenger: defender committed, ready to resolve */}
-          {battlesToResolve.length > 0 && (
-            <div
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-lg pointer-events-auto"
-              style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)", backdropFilter: "blur(12px)" }}
-            >
-              <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}>⚡</motion.span>
-              <span className="text-sm font-card text-white">
-                {battlesToResolve.length === 1 ? "Defender responded — resolve now!" : `${battlesToResolve.length} battles ready to resolve!`}
-              </span>
-              <div className="flex gap-2">
-                {battlesToResolve.map((b) => (
-                  <Link key={b.battleId} href={`/battle/${b.battleId}`}
-                    className="px-3 py-1 rounded-lg text-xs font-card font-medium text-white transition-all hover:scale-105"
-                    style={{ background: "rgba(245,158,11,0.5)", border: "1px solid rgba(245,158,11,0.6)" }}>
-                    Resolve #{b.battleId}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
       )}
 
       <AnimatePresence mode="wait">

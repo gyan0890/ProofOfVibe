@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Nav } from "@/components/Nav";
+import { BattleBanner } from "@/components/BattleBanner";
 
 export const metadata: Metadata = {
   title: "Proof of Vibe — Your onchain soul. Proven. Hidden.",
@@ -24,6 +25,7 @@ export default function RootLayout({
       <body className="antialiased">
         <Providers>
           <Nav />
+          <BattleBanner />
           {children}
         </Providers>
       </body>
