@@ -7,13 +7,6 @@ import { CONTRACT_ADDRESSES } from "@/lib/constants";
 
 const BATTLE_ABI = [
   {
-    type: "function",
-    name: "battle_counter",
-    inputs: [],
-    outputs: [{ type: "core::integer::u256" }],
-    state_mutability: "view",
-  },
-  {
     type: "struct",
     name: "vibe_card::BattleData",
     members: [
@@ -37,6 +30,12 @@ const BATTLE_ABI = [
   },
 ] as const;
 
+// Maximum battle IDs to probe before giving up.
+// Stop early when we see STOP_AFTER_CONSECUTIVE_ZEROS consecutive
+// battles with initiated_at === 0 (default Cairo storage = never written).
+const MAX_BATTLE_PROBE = 200;
+const STOP_AFTER_CONSECUTIVE_ZEROS = 3;
+
 export interface PendingChallenge {
   battleId: number;
   challengerToken: number;
@@ -58,35 +57,43 @@ export function usePendingChallenges(defenderTokenId: number | null | undefined)
         providerOrAccount: provider,
       });
 
-      // Get the actual total battle count so we never miss newer battles
-      const totalRaw = await contract.battle_counter();
-      const total = Number(totalRaw);
-      if (total === 0) { setChallenges([]); return; }
+      const pending: PendingChallenge[] = [];
+      let consecutiveZeros = 0;
 
-      // Fetch all battles in parallel
-      const ids = Array.from({ length: total }, (_, i) => i + 1);
-      const results = await Promise.all(
-        ids.map(async (id) => {
-          try {
-            const b = await contract.get_battle({ low: id, high: 0 });
-            return { id, b };
-          } catch {
-            return null;
-          }
-        })
-      );
+      for (let id = 1; id <= MAX_BATTLE_PROBE; id++) {
+        let b: any;
+        try {
+          b = await contract.get_battle({ low: id, high: 0 });
+        } catch {
+          // RPC error for this slot — treat as empty and keep scanning
+          consecutiveZeros++;
+          if (consecutiveZeros >= STOP_AFTER_CONSECUTIVE_ZEROS) break;
+          continue;
+        }
 
-      const pending: PendingChallenge[] = results
-        .filter((r): r is { id: number; b: any } => r !== null)
-        .filter(({ b }) =>
+        const initiatedAt = Number(b.initiated_at);
+
+        if (initiatedAt === 0) {
+          // Battle slot never written — we've gone past the last real battle
+          consecutiveZeros++;
+          if (consecutiveZeros >= STOP_AFTER_CONSECUTIVE_ZEROS) break;
+          continue;
+        }
+
+        // Real battle — reset the zero counter
+        consecutiveZeros = 0;
+
+        if (
           Number(b.status) === 0 &&
           Number(b.defender_token) === defenderTokenId
-        )
-        .map(({ id, b }) => ({
-          battleId: id,
-          challengerToken: Number(b.challenger_token),
-          initiatedAt: Number(b.initiated_at) * 1000,
-        }));
+        ) {
+          pending.push({
+            battleId: id,
+            challengerToken: Number(b.challenger_token),
+            initiatedAt: initiatedAt * 1000,
+          });
+        }
+      }
 
       setChallenges(pending);
     } catch (e) {
