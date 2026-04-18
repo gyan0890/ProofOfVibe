@@ -33,7 +33,7 @@ export function generatePersonaName(): string {
   ];
   const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
   const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const num = Math.floor(Math.random() * 9000) + 1000;
+  const num = Math.floor(Math.random() * 900000) + 100000;
   return `${adj} ${noun} #${num}`;
 }
 
