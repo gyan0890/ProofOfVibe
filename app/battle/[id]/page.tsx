@@ -82,7 +82,7 @@ const MOVES = [
   { label: "Financial Raid", description: "Uncover their money trail" },
 ];
 
-type BattleStep = "pick" | "confirm" | "waiting" | "resolve" | "resolved";
+type BattleStep = "pick" | "waiting" | "resolved";
 
 interface PendingBattle {
   battleId: number;
@@ -220,17 +220,31 @@ export default function BattlePage({ params }: { params: { id: string } }) {
       setOnchainBattle(battle);
       if (battle.status === 1) {
         clearInterval(pollRef.current!);
-        setStep("resolve");
+        // Auto-resolve — read pending from localStorage in case state is stale
+        const saved = localStorage.getItem(`pendingBattle_${activeBattle.battleId}`);
+        let pending = activeBattle;
+        if (saved) { try { pending = JSON.parse(saved) as PendingBattle; } catch { /* ignore */ } }
+        const resolveResult = await resolveBattle(pending.battleId, pending.move, pending.nonce, 0, "0x1");
+        if (!resolveResult) {
+          setLocalError("Auto-resolve failed — please refresh and try again.");
+          return;
+        }
+        setTxHash(resolveResult.txHash);
+        const updated = await getBattle(pending.battleId);
+        if (updated) setOnchainBattle(updated);
+        setStep("resolved");
+        window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
       }
     }, 5000);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [step, activeBattle, getBattle]);
+  }, [step, activeBattle, getBattle, resolveBattle]);
 
-  async function handleCommitMove() {
-    if (selectedMove === null || challengerTokenId === null || defenderTokenId === null) return;
+  async function handleCommitMove(moveIndex: number) {
+    if (challengerTokenId === null || defenderTokenId === null) return;
+    setSelectedMove(moveIndex);
     setLocalError(null);
 
     const activityScore = loadLocalCard()?.privacyProfile?.totalTransactions ?? 0;
@@ -238,7 +252,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     const result = await initiateBattle(
       challengerTokenId,
       defenderTokenId,
-      selectedMove,
+      moveIndex,
       activityScore
     );
 
@@ -412,7 +426,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                       key={i}
                       whileHover={{ scale: 1.02, x: 4 }}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => { setSelectedMove(i); setStep("confirm"); }}
+                      onClick={() => handleCommitMove(i)}
                       className="min-touch p-5 rounded-2xl text-left flex items-center gap-4"
                       style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                     >
@@ -433,44 +447,6 @@ export default function BattlePage({ params }: { params: { id: string } }) {
             </motion.div>
           )}
 
-          {step === "confirm" && selectedMove !== null && (
-            <motion.div key="confirm" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <p className="text-[11px] font-card tracking-[0.3em] text-white/30 uppercase mb-2">Confirm Move</p>
-              <h2 className="font-card text-2xl font-medium text-white mb-6">{MOVES[selectedMove].label}</h2>
-              <p className="text-white/40 text-sm font-ui mb-8">
-                {MOVES[selectedMove].description}
-                <br />
-                Your move will be committed onchain as a hash — revealed only when resolved.
-              </p>
-
-              {displayError && (
-                <div
-                  className="mb-4 px-4 py-3 rounded-xl text-sm font-ui"
-                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444" }}
-                >
-                  {displayError}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setStep("pick")}
-                  className="min-touch px-5 py-3 rounded-xl font-card text-sm text-white/40 hover:text-white transition-all"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleCommitMove}
-                  disabled={battleLoading}
-                  className="min-touch flex-1 px-8 py-3 rounded-xl font-card text-sm text-white hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}
-                >
-                  {battleLoading ? "Committing..." : "Commit move onchain"}
-                </button>
-              </div>
-            </motion.div>
-          )}
-
           {step === "waiting" && activeBattle !== null && (
             <motion.div
               key="waiting"
@@ -486,10 +462,12 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
               />
               <p className="font-card text-lg text-white">
-                Waiting for {defenderCard?.personaName ?? "opponent"} to respond...
+                {battleLoading
+                  ? "Resolving battle…"
+                  : `Waiting for ${defenderCard?.personaName ?? "opponent"} to respond…`}
               </p>
               <p className="text-white/30 text-sm font-ui">Battle #{activeBattle.battleId}</p>
-              <p className="text-white/20 text-xs font-ui">Expires in ~1h if no response</p>
+              {!battleLoading && <p className="text-white/20 text-xs font-ui">Expires in ~1h if no response</p>}
 
               {onchainBattle && activeBattle.battleId > 0 && onchainBattle.initiatedAt > 0 && Date.now() > onchainBattle.initiatedAt + 3_600_000 && (
                 <button
@@ -549,44 +527,6 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                   𝕏 Post challenge
                 </a>
               </div>
-            </motion.div>
-          )}
-
-          {step === "resolve" && activeBattle !== null && (
-            <motion.div
-              key="resolve"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-6 py-16 text-center"
-            >
-              <p className="text-[11px] font-card tracking-[0.3em] text-white/30 uppercase">
-                Defender has committed
-              </p>
-              <h2 className="font-card text-2xl font-medium text-white">
-                Battle #{activeBattle.battleId} is ready to resolve
-              </h2>
-              <p className="text-white/40 text-sm font-ui max-w-sm">
-                Both sides have committed. Reveal your move onchain to determine the winner.
-              </p>
-
-              {displayError && (
-                <div
-                  className="px-4 py-3 rounded-xl text-sm font-ui w-full max-w-sm"
-                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444" }}
-                >
-                  {displayError}
-                </div>
-              )}
-
-              <button
-                onClick={handleResolve}
-                disabled={battleLoading}
-                className="min-touch px-8 py-3 rounded-xl font-card text-sm text-white hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)" }}
-              >
-                {battleLoading ? "Resolving..." : "Reveal & Resolve"}
-              </button>
             </motion.div>
           )}
 
