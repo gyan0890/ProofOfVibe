@@ -5,11 +5,11 @@ export const SEASON_END = SEASON_START + SEASON_DURATION_DAYS * 24 * 60 * 60 * 1
 export const BATTLE_EXPIRY_SECONDS = 3600; // 1 hour
 
 export const TRAIT_EXPOSE_THRESHOLDS = {
-  TRAIT_1: 1,
-  TRAIT_2: 2,
-  BAR_ACCURATE: 3,
-  PALETTE: 5,
-  FULL_REVEAL: 8,
+  TRAIT_1: 1,       // identity hint
+  TRAIT_2: 2,       // geographic hint + bars accurate
+  TRAIT_3: 3,       // behavioral hint
+  PALETTE: 4,       // palette cracked
+  FULL_REVEAL: 6,   // oracle auto-reveal trigger
 };
 
 export const STARKNET_CHAIN_ID =
