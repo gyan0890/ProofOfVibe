@@ -19,7 +19,7 @@ export function Nav() {
   const [navHandleSaved, setNavHandleSaved] = useState(false);
   const isConnected = status === "connected" && !!address;
 
-  // Resolve defender token ID from localStorage for challenge notifications
+  // Resolve my token ID from localStorage
   const myTokenId = (() => {
     if (typeof window === "undefined" || !isConnected) return null;
     const local = loadLocalCard();
@@ -29,8 +29,10 @@ export function Nav() {
     const last = Number(parts[parts.length - 1]);
     return Number.isInteger(last) && last > 0 && last < 1_000_000 ? last : null;
   })();
-  const { challenges } = usePendingChallenges(myTokenId);
-  const challengeCount = challenges.length;
+
+  const { challenges, toResolve } = usePendingChallenges(myTokenId);
+  // Total badge = battles I need to respond to + battles ready for me to resolve
+  const totalActionable = challenges.length + toResolve.length;
 
   // Load X handle when wallet connects
   if (typeof window !== "undefined" && isConnected && address && !navHandle) {
@@ -82,28 +84,28 @@ export function Nav() {
           );
         })}
 
-        {/* Wallet / Play button */}
+        {/* Wallet button */}
         {isConnected ? (
           <div className="relative ml-2">
             <button
               onClick={() => setShowMenu((v) => !v)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-card transition-all"
               style={{
-                background: challengeCount > 0 ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
-                border: `1px solid ${challengeCount > 0 ? "rgba(239,68,68,0.35)" : "rgba(34,197,94,0.25)"}`,
+                background: totalActionable > 0 ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
+                border: `1px solid ${totalActionable > 0 ? "rgba(239,68,68,0.35)" : "rgba(34,197,94,0.25)"}`,
                 color: "rgba(255,255,255,0.85)",
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: challengeCount > 0 ? "#ef4444" : "#4ade80" }} />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: totalActionable > 0 ? "#ef4444" : "#4ade80" }} />
               {truncateAddress(address)}
-              {challengeCount > 0 && (
+              {totalActionable > 0 && (
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
                   style={{ background: "rgba(239,68,68,0.9)", color: "white" }}
                 >
-                  ⚔️ {challengeCount}
+                  ⚔️ {totalActionable}
                 </motion.span>
               )}
             </button>
@@ -112,7 +114,7 @@ export function Nav() {
               <motion.div
                 initial={{ opacity: 0, y: -4, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="absolute right-0 top-full mt-1 rounded-xl overflow-hidden shadow-xl z-50 min-w-[160px]"
+                className="absolute right-0 top-full mt-1 rounded-xl overflow-hidden shadow-xl z-50 min-w-[180px]"
                 style={{ background: "#111118", border: "1px solid rgba(255,255,255,0.1)" }}
               >
                 {/* Full address + copy */}
@@ -132,6 +134,7 @@ export function Nav() {
                   </span>
                 </button>
                 <div className="border-t border-white/8 mb-1" />
+
                 <Link
                   href="/reveal"
                   onClick={() => setShowMenu(false)}
@@ -139,18 +142,35 @@ export function Nav() {
                 >
                   🃏 My Card
                 </Link>
-                {challengeCount > 0 && challenges.map((c) => (
+
+                {/* Defender: battles I need to respond to */}
+                {challenges.map((c) => (
                   <Link
-                    key={c.battleId}
+                    key={`defend-${c.battleId}`}
                     href={`/battle/respond/${c.battleId}`}
                     onClick={() => setShowMenu(false)}
                     className="flex items-center justify-between gap-2 px-4 py-2.5 text-xs font-card hover:bg-red-500/5 transition-colors"
                     style={{ color: "#ef4444" }}
                   >
-                    <span>⚔️ Battle #{c.battleId} — respond</span>
-                    <span className="text-[10px] text-red-400/50">pending</span>
+                    <span>⚔️ Battle #{c.battleId}</span>
+                    <span className="text-[10px] text-red-400/60 shrink-0">respond →</span>
                   </Link>
                 ))}
+
+                {/* Challenger: battles where defender committed, ready to resolve */}
+                {toResolve.map((b) => (
+                  <Link
+                    key={`resolve-${b.battleId}`}
+                    href={`/battle/${b.battleId}`}
+                    onClick={() => setShowMenu(false)}
+                    className="flex items-center justify-between gap-2 px-4 py-2.5 text-xs font-card hover:bg-amber-500/5 transition-colors"
+                    style={{ color: "#f59e0b" }}
+                  >
+                    <span>⚡ Battle #{b.battleId}</span>
+                    <span className="text-[10px] text-amber-400/60 shrink-0">resolve →</span>
+                  </Link>
+                ))}
+
                 <Link
                   href="/leaderboard"
                   onClick={() => setShowMenu(false)}
@@ -159,6 +179,7 @@ export function Nav() {
                   ⚔️ Battle
                 </Link>
                 <div className="border-t border-white/8 my-1" />
+
                 {/* X handle */}
                 <div className="px-3 py-2">
                   <p className="text-[9px] text-white/25 font-ui tracking-wider uppercase mb-1.5">𝕏 Handle</p>

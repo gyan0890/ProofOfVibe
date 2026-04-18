@@ -30,25 +30,31 @@ const BATTLE_ABI = [
   },
 ] as const;
 
-// Maximum battle IDs to probe before giving up.
-// Stop early when we see STOP_AFTER_CONSECUTIVE_ZEROS consecutive
-// battles with initiated_at === 0 (default Cairo storage = never written).
 const MAX_BATTLE_PROBE = 200;
 const STOP_AFTER_CONSECUTIVE_ZEROS = 3;
 
+/** Battle where I am the defender and need to respond (status=0) */
 export interface PendingChallenge {
   battleId: number;
   challengerToken: number;
   initiatedAt: number; // ms
 }
 
-export function usePendingChallenges(defenderTokenId: number | null | undefined) {
+/** Battle where I am the challenger and need to resolve (status=1) */
+export interface BattleToResolve {
+  battleId: number;
+  defenderToken: number;
+  initiatedAt: number; // ms
+}
+
+export function usePendingChallenges(myTokenId: number | null | undefined) {
   const { provider } = useProvider();
   const [challenges, setChallenges] = useState<PendingChallenge[]>([]);
+  const [toResolve, setToResolve] = useState<BattleToResolve[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!defenderTokenId || !provider) return;
+    if (!myTokenId || !provider) return;
     setLoading(true);
     try {
       const contract = new Contract({
@@ -57,7 +63,8 @@ export function usePendingChallenges(defenderTokenId: number | null | undefined)
         providerOrAccount: provider,
       });
 
-      const pending: PendingChallenge[] = [];
+      const pendingDefender: PendingChallenge[] = [];
+      const pendingChallenger: BattleToResolve[] = [];
       let consecutiveZeros = 0;
 
       for (let id = 1; id <= MAX_BATTLE_PROBE; id++) {
@@ -65,47 +72,54 @@ export function usePendingChallenges(defenderTokenId: number | null | undefined)
         try {
           b = await contract.get_battle({ low: id, high: 0 });
         } catch {
-          // RPC error for this slot — treat as empty and keep scanning
           consecutiveZeros++;
           if (consecutiveZeros >= STOP_AFTER_CONSECUTIVE_ZEROS) break;
           continue;
         }
 
         const initiatedAt = Number(b.initiated_at);
-
         if (initiatedAt === 0) {
-          // Battle slot never written — we've gone past the last real battle
           consecutiveZeros++;
           if (consecutiveZeros >= STOP_AFTER_CONSECUTIVE_ZEROS) break;
           continue;
         }
-
-        // Real battle — reset the zero counter
         consecutiveZeros = 0;
 
-        if (
-          Number(b.status) === 0 &&
-          Number(b.defender_token) === defenderTokenId
-        ) {
-          pending.push({
+        const status = Number(b.status);
+        const challengerToken = Number(b.challenger_token);
+        const defenderToken = Number(b.defender_token);
+
+        // I'm the defender and battle is waiting for my response
+        if (status === 0 && defenderToken === myTokenId) {
+          pendingDefender.push({
             battleId: id,
-            challengerToken: Number(b.challenger_token),
+            challengerToken,
+            initiatedAt: initiatedAt * 1000,
+          });
+        }
+
+        // I'm the challenger and the defender has committed — ready to resolve
+        if (status === 1 && challengerToken === myTokenId) {
+          pendingChallenger.push({
+            battleId: id,
+            defenderToken,
             initiatedAt: initiatedAt * 1000,
           });
         }
       }
 
-      setChallenges(pending);
+      setChallenges(pendingDefender);
+      setToResolve(pendingChallenger);
     } catch (e) {
       console.error("usePendingChallenges error:", e);
     } finally {
       setLoading(false);
     }
-  }, [defenderTokenId, provider]);
+  }, [myTokenId, provider]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  return { challenges, loading, refresh };
+  return { challenges, toResolve, loading, refresh };
 }
