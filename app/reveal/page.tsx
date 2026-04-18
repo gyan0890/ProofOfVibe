@@ -12,6 +12,7 @@ import { SHARE_TWEET_TEMPLATE } from "@/lib/constants";
 import { loadLocalCard, saveCardLocally, updateLocalCard, clearLocalCard } from "@/lib/storage";
 import { useMint } from "@/hooks/useMint";
 import { useMyCard } from "@/hooks/useMyCard";
+import { usePendingChallenges } from "@/hooks/usePendingChallenges";
 import { usePrivacyScore } from "@/hooks/usePrivacyScore";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 
@@ -159,6 +160,8 @@ export default function RevealPage() {
 
 
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
+  const myTokenId = onchainCard?.tokenId ?? null;
+  const { challenges: pendingChallenges } = usePendingChallenges(myTokenId);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const animationStarted = useRef(false);
   // Tracks whether the user has built a card from a fresh scan this session.
@@ -479,6 +482,42 @@ export default function RevealPage() {
           open={showConnectModal}
           onClose={() => setShowConnectModal(false)}
         />
+
+        {/* ── Pending challenge banner (also shown on scan/options view) ── */}
+        {pendingChallenges.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed top-16 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none"
+          >
+            <div
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-lg pointer-events-auto"
+              style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", backdropFilter: "blur(12px)" }}
+            >
+              <motion.span
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}
+              >
+                ⚔️
+              </motion.span>
+              <span className="text-sm font-card text-white">
+                {pendingChallenges.length === 1 ? "You've been challenged!" : `${pendingChallenges.length} challenges waiting!`}
+              </span>
+              <div className="flex gap-2">
+                {pendingChallenges.map((c) => (
+                  <Link
+                    key={c.battleId}
+                    href={`/battle/respond/${c.battleId}`}
+                    className="px-3 py-1 rounded-lg text-xs font-card font-medium text-white transition-all hover:scale-105"
+                    style={{ background: "rgba(239,68,68,0.5)", border: "1px solid rgba(239,68,68,0.6)" }}
+                  >
+                    Respond #{c.battleId}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         <AnimatePresence mode="wait">
           {/* ── Scanning in progress ───────────────────────────────────── */}
@@ -829,6 +868,44 @@ export default function RevealPage() {
 
       {showFaucetModal && address && (
         <FaucetModal address={address} onClose={() => setShowFaucetModal(false)} onConfirm={doMint} />
+      )}
+
+      {/* ── Pending challenge banner ───────────────────────────────────── */}
+      {pendingChallenges.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="fixed top-16 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none"
+        >
+          <div
+            className="flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-lg pointer-events-auto"
+            style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", backdropFilter: "blur(12px)" }}
+          >
+            <motion.span
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}
+            >
+              ⚔️
+            </motion.span>
+            <span className="text-sm font-card text-white">
+              {pendingChallenges.length === 1
+                ? "You've been challenged!"
+                : `${pendingChallenges.length} challenges waiting!`}
+            </span>
+            <div className="flex gap-2">
+              {pendingChallenges.map((c) => (
+                <Link
+                  key={c.battleId}
+                  href={`/battle/respond/${c.battleId}`}
+                  className="px-3 py-1 rounded-lg text-xs font-card font-medium text-white transition-all hover:scale-105"
+                  style={{ background: "rgba(239,68,68,0.5)", border: "1px solid rgba(239,68,68,0.6)" }}
+                >
+                  Respond #{c.battleId}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       )}
 
       <AnimatePresence mode="wait">

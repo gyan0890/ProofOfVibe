@@ -6,7 +6,8 @@ import { motion } from "framer-motion";
 import { useAccount, useDisconnect } from "@starknet-react/core";
 import { useState } from "react";
 import { truncateAddress } from "@/lib/utils";
-import { clearLocalCard } from "@/lib/storage";
+import { clearLocalCard, loadLocalCard } from "@/lib/storage";
+import { usePendingChallenges } from "@/hooks/usePendingChallenges";
 
 export function Nav() {
   const pathname = usePathname();
@@ -17,6 +18,19 @@ export function Nav() {
   const [navHandle, setNavHandle] = useState("");
   const [navHandleSaved, setNavHandleSaved] = useState(false);
   const isConnected = status === "connected" && !!address;
+
+  // Resolve defender token ID from localStorage for challenge notifications
+  const myTokenId = (() => {
+    if (typeof window === "undefined" || !isConnected) return null;
+    const local = loadLocalCard();
+    if (!local?.isAnchored) return null;
+    if (local.tokenId) return local.tokenId;
+    const parts = local.id.split("-");
+    const last = Number(parts[parts.length - 1]);
+    return Number.isInteger(last) && last > 0 && last < 1_000_000 ? last : null;
+  })();
+  const { challenges } = usePendingChallenges(myTokenId);
+  const challengeCount = challenges.length;
 
   // Load X handle when wallet connects
   if (typeof window !== "undefined" && isConnected && address && !navHandle) {
@@ -75,13 +89,23 @@ export function Nav() {
               onClick={() => setShowMenu((v) => !v)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-card transition-all"
               style={{
-                background: "rgba(34,197,94,0.1)",
-                border: "1px solid rgba(34,197,94,0.25)",
+                background: challengeCount > 0 ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.1)",
+                border: `1px solid ${challengeCount > 0 ? "rgba(239,68,68,0.35)" : "rgba(34,197,94,0.25)"}`,
                 color: "rgba(255,255,255,0.85)",
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: challengeCount > 0 ? "#ef4444" : "#4ade80" }} />
               {truncateAddress(address)}
+              {challengeCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                  style={{ background: "rgba(239,68,68,0.9)", color: "white" }}
+                >
+                  ⚔️ {challengeCount}
+                </motion.span>
+              )}
             </button>
 
             {showMenu && (
@@ -115,6 +139,18 @@ export function Nav() {
                 >
                   🃏 My Card
                 </Link>
+                {challengeCount > 0 && challenges.map((c) => (
+                  <Link
+                    key={c.battleId}
+                    href={`/battle/respond/${c.battleId}`}
+                    onClick={() => setShowMenu(false)}
+                    className="flex items-center justify-between gap-2 px-4 py-2.5 text-xs font-card hover:bg-red-500/5 transition-colors"
+                    style={{ color: "#ef4444" }}
+                  >
+                    <span>⚔️ Battle #{c.battleId} — respond</span>
+                    <span className="text-[10px] text-red-400/50">pending</span>
+                  </Link>
+                ))}
                 <Link
                   href="/leaderboard"
                   onClick={() => setShowMenu(false)}
