@@ -121,5 +121,17 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
     refresh();
   }, [refresh]);
 
+  // Re-fetch when tab regains focus or a battle action fires a custom event
+  useEffect(() => {
+    const onFocus = () => refresh();
+    const onBattleUpdate = () => refresh();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("proofofvibe:battleUpdated", onBattleUpdate);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("proofofvibe:battleUpdated", onBattleUpdate);
+    };
+  }, [refresh]);
+
   return { challenges, toResolve, loading, refresh };
 }

@@ -269,6 +269,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     const updated = await getBattle(activeBattle.battleId);
     if (updated) setOnchainBattle(updated);
     setStep("resolved");
+    window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
   }
 
   async function handleResolve() {
@@ -292,6 +293,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     const updated = await getBattle(pending.battleId);
     if (updated) setOnchainBattle(updated);
     setStep("resolved");
+    window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
   }
 
   // Build Twitter share URL — includes both challenger and defender handles when available

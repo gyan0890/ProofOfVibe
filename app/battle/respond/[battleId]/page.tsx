@@ -154,6 +154,8 @@ export default function RespondPage({ params }: { params: { battleId: string } }
     localStorage.setItem(`pendingDefense_${battleId}`, JSON.stringify({ move: result.move, nonce: result.nonce }));
     setTxHash(result.txHash);
     setStep("submitted");
+    // Signal Nav + BattleBanner to re-fetch — clears the notification immediately
+    window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
   }
 
   const displayError = localError ?? battleError;
