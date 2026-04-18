@@ -6,7 +6,7 @@ import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { generateSalt, generatePersonaName } from "@/lib/utils";
 import { saveCardLocally, updateLocalCard, loadLocalCard } from "@/lib/storage";
 import { CardData, VibeTypeIndex } from "@/lib/types";
-import { hash, shortString, CallData, Contract, num } from "starknet";
+import { hash, shortString, Contract, num } from "starknet";
 
 const VIBECARD_COUNTER_ABI = [
   {
@@ -80,7 +80,7 @@ export function useMint() {
         const call = {
           contractAddress: CONTRACT_ADDRESSES.vibeCard as `0x${string}`,
           entrypoint: "mint",
-          calldata: CallData.compile([commitment, "0x0", nameFelt]),
+          calldata: [num.toHex(commitment), "0x0", num.toHex(nameFelt)],
         };
 
         console.log('[useMint] calling sendAsync with call:', call);
