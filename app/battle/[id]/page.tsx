@@ -32,6 +32,7 @@ const VIBECARD_READ_ABI = [
     members: [
       { name: "trait_1_word", type: "core::felt252" },
       { name: "trait_2_word", type: "core::felt252" },
+      { name: "trait_3_word", type: "core::felt252" },
       { name: "bar_fills_accurate", type: "core::bool" },
       { name: "palette_revealed", type: "core::bool" },
       { name: "type_revealed", type: "core::bool" },

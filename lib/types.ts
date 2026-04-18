@@ -38,8 +38,9 @@ export interface CardData {
 }
 
 export interface TraitRevealState {
-  trait1Word?: string;
-  trait2Word?: string;
+  trait1Word?: string;   // identity hint — revealed at loss 1
+  trait2Word?: string;   // geographic hint — revealed at loss 2
+  trait3Word?: string;   // behavioral hint — revealed at loss 3
   barFillsAccurate: boolean;
   paletteRevealed: boolean;
   typeRevealed: boolean;
@@ -86,13 +87,13 @@ export interface PrivacyProfile {
   /** 0–100: higher = on-chain behaviour more traceable */
   behavioralFingerprint: number;
 
-  /** Short label revealed after 1st battle loss */
+  /** Short label revealed at loss 1 */
   identityLabel: string;
-  /** Short label revealed after 2nd battle loss */
+  /** Short label revealed at loss 2 */
   geographicLabel: string;
-  /** Short label revealed after 3rd battle loss */
+  /** Short label revealed at loss 4 (palette crack) — shown on full reveal */
   financialLabel: string;
-  /** Short label revealed after 5th battle loss */
+  /** Short label revealed at loss 3 */
   behavioralLabel: string;
 
   ensName?: string;

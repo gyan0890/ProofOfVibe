@@ -117,26 +117,23 @@ export function VibeCard({
   const primaryColor = vibeType ? vibeType.primary : "#888780";
   const traits = vibeType ? vibeType.traits : (["░░░░░░░", "░░░░░░░", "░░░░░░░"] as [string, string, string]);
 
-  // For privacy-based cards the three bars map to the three revealed privacy dimensions.
-  // For quiz-based cards they map to the vibe type's standard trait words.
+  // Privacy cards have 4 bars (identity, geographic, behavioral, financial).
+  // Quiz cards keep 3 bars mapped to their vibe type trait words.
   const isPrivacyCard = !!card.privacyProfile;
   const p = card.privacyProfile;
 
-  // Privacy dimension labels (short, uppercase-friendly)
-  const PRIVACY_LABELS: [string, string, string] = ["IDENTITY", "GEOGRAPHY", "FINANCIAL"];
-  // Privacy dimension descriptions revealed progressively
-  const privacyDescriptions: [string, string, string] = p
-    ? [p.identityLabel, p.geographicLabel, p.financialLabel]
-    : ["", "", ""];
+  const PRIVACY_LABELS = ["IDENTITY", "GEOGRAPHIC", "BEHAVIORAL", "FINANCIAL"];
+  const privacyDescriptions = p
+    ? [p.identityLabel, p.geographicLabel, p.behavioralLabel, p.financialLabel]
+    : ["", "", "", ""];
 
   // Each bar: [displayLabel, isRevealed]
-  // - Privacy card: show dimension name when revealed; show description as tooltip/sub
-  // - Quiz card:    show vibe type trait word when revealed
   const traitLabels: [string, boolean][] = isPrivacyCard
     ? [
         [PRIVACY_LABELS[0], !!traitReveal.trait1Word || isTypeRevealed],
         [PRIVACY_LABELS[1], !!traitReveal.trait2Word || isTypeRevealed],
-        [PRIVACY_LABELS[2], traitReveal.barFillsAccurate || isTypeRevealed],
+        [PRIVACY_LABELS[2], !!traitReveal.trait3Word || isTypeRevealed],
+        [PRIVACY_LABELS[3], traitReveal.barFillsAccurate || isTypeRevealed],
       ]
     : [
         [traitReveal.trait1Word || traits[0], !!traitReveal.trait1Word || isTypeRevealed],
@@ -144,37 +141,44 @@ export function VibeCard({
         [traits[2], traitReveal.barFillsAccurate || isTypeRevealed],
       ];
 
-  // Bar fills: use actual privacy scores when the card has them
-  const privacyFills: [number, number, number] | null = p
-    ? [p.identityLeakage, p.geographicSignal, p.financialProfile]
+  // Bar fills: 4 values for privacy cards, 3 for quiz cards
+  const privacyFills: [number, number, number, number] | null = p
+    ? [p.identityLeakage, p.geographicSignal, p.behavioralFingerprint, p.financialProfile]
     : null;
 
-  // When fills are accurate (post 3 losses) or fully revealed: use real scores
-  const traitFills: [number, number, number] =
-    traitReveal.barFillsAccurate || isTypeRevealed
-      ? (privacyFills ?? [72, 58, 84])
+  const traitFills: number[] = isPrivacyCard
+    ? traitReveal.barFillsAccurate || isTypeRevealed
+      ? (privacyFills ?? [72, 58, 65, 84])
       : [
-          // Bar 1: show real score even before full accuracy if trait1 is visible
-          traitReveal.trait1Word && privacyFills
-            ? privacyFills[0]
-            : Math.floor(50 + Math.random() * 30),
-          // Bars 2 & 3: show real scores only after bar_fills_accurate
-          traitReveal.trait2Word && privacyFills
-            ? privacyFills[1]
-            : Math.floor(40 + Math.random() * 30),
-          Math.floor(60 + Math.random() * 30),
+          traitReveal.trait1Word && privacyFills ? privacyFills[0] : Math.floor(45 + Math.random() * 35),
+          traitReveal.trait2Word && privacyFills ? privacyFills[1] : Math.floor(40 + Math.random() * 35),
+          traitReveal.trait3Word && privacyFills ? privacyFills[2] : Math.floor(40 + Math.random() * 35),
+          Math.floor(55 + Math.random() * 30),
+        ]
+    : traitReveal.barFillsAccurate || isTypeRevealed
+      ? [72, 58, 84]
+      : [
+          traitReveal.trait1Word ? 72 : Math.floor(45 + Math.random() * 35),
+          traitReveal.trait2Word ? 58 : Math.floor(40 + Math.random() * 35),
+          Math.floor(55 + Math.random() * 30),
         ];
 
-  // Sub-label shown beneath the bar (privacy description when revealed, empty for quiz)
-  const privacySubLabels: [string, string, string] = isPrivacyCard
+  // Sub-labels (privacy scan description shown under each revealed bar)
+  const privacySubLabels: string[] = isPrivacyCard
     ? [
         traitReveal.trait1Word || isTypeRevealed ? privacyDescriptions[0] : "",
         traitReveal.trait2Word || isTypeRevealed ? privacyDescriptions[1] : "",
-        traitReveal.barFillsAccurate || isTypeRevealed ? privacyDescriptions[2] : "",
+        traitReveal.trait3Word || isTypeRevealed ? privacyDescriptions[2] : "",
+        traitReveal.barFillsAccurate || isTypeRevealed ? privacyDescriptions[3] : "",
       ]
     : ["", "", ""];
 
-  const sizeMap = { sm: { w: 200, h: 300 }, md: { w: 320, h: 480 }, lg: { w: 380, h: 570 } };
+  // Privacy cards are slightly taller to fit the 4th bar
+  const sizeMap = {
+    sm: { w: 200, h: isPrivacyCard ? 320 : 300 },
+    md: { w: 320, h: isPrivacyCard ? 510 : 480 },
+    lg: { w: 380, h: isPrivacyCard ? 600 : 570 },
+  };
   const { w, h } = sizeMap[size];
 
   const cardStyle: React.CSSProperties = {

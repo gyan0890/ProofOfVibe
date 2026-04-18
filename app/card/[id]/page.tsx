@@ -306,31 +306,39 @@ export default function CardPage({ params }: { params: { id: string } }) {
               const milestones = [
                 {
                   lossThreshold: 1,
-                  label: "1st Hint",
-                  detail: "Identity dimension leaks",
-                  icon: "🔓",
+                  label: "Identity Leaks",
+                  detail: "Who you are starts showing",
+                  icon: "👤",
                   reached: losses >= 1,
                   color: "#a78bfa",
                 },
                 {
                   lossThreshold: 2,
-                  label: "Stats + 2nd Hint",
-                  detail: "Second hint & scores go accurate",
+                  label: "Location + Stats",
+                  detail: "Geographic hint & scores go accurate",
                   icon: "📊",
                   reached: losses >= 2,
                   color: "#7F77DD",
                 },
                 {
                   lossThreshold: 3,
+                  label: "Behaviour Exposed",
+                  detail: "On-chain behaviour pattern leaks",
+                  icon: "🧠",
+                  reached: losses >= 3,
+                  color: "#D4537E",
+                },
+                {
+                  lossThreshold: 4,
                   label: "Palette Cracked",
                   detail: "Card colour revealed",
                   icon: "🎨",
-                  reached: losses >= 3,
+                  reached: losses >= 4,
                   color: "#F59E0B",
                 },
               ];
               const reached = milestones.filter(m => m.reached).length;
-              const pct = reached === 0 ? 0 : reached === 3 ? 100 : (milestones[reached - 1].lossThreshold / 3) * 100;
+              const pct = reached === 0 ? 0 : reached === 4 ? 100 : (milestones[reached - 1].lossThreshold / 4) * 100;
               const nextMilestone = milestones.find(m => !m.reached);
 
               return (
@@ -359,7 +367,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
                     />
 
                     {milestones.map((m, i) => (
-                      <div key={i} className="relative flex flex-col items-center gap-1.5 z-10" style={{ width: "25%" }}>
+                      <div key={i} className="relative flex flex-col items-center gap-1.5 z-10" style={{ width: "24%" }}>
                         <motion.div
                           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-card font-bold"
                           style={{
@@ -409,7 +417,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
                       {nextMilestone.lossThreshold - losses} more {nextMilestone.lossThreshold - losses === 1 ? "loss" : "losses"} until {nextMilestone.detail.toLowerCase()}
                     </p>
                   )}
-                  {reached === 3 && (
+                  {reached === 4 && (
                     <p className="text-[10px] font-ui text-red-400/60">
                       🔴 Fully cracked — vibe type exposed at season end
                     </p>

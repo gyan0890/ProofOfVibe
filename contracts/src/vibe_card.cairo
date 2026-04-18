@@ -13,8 +13,9 @@ pub struct CardData {
 
 #[derive(Drop, Serde, starknet::Store)]
 pub struct TraitRevealState {
-    pub trait_1_word: felt252,   // 0 = not revealed
-    pub trait_2_word: felt252,   // 0 = not revealed
+    pub trait_1_word: felt252,   // 0 = not revealed (identity)
+    pub trait_2_word: felt252,   // 0 = not revealed (geographic)
+    pub trait_3_word: felt252,   // 0 = not revealed (behavioral)
     pub bar_fills_accurate: bool,
     pub palette_revealed: bool,
     pub type_revealed: bool,
@@ -235,6 +236,7 @@ pub mod VibeCard {
             let trait_state = TraitRevealState {
                 trait_1_word: 0,
                 trait_2_word: 0,
+                trait_3_word: 0,
                 bar_fills_accurate: false,
                 palette_revealed: false,
                 type_revealed: false,
@@ -454,12 +456,12 @@ pub mod VibeCard {
 
             let mut state = self.revealed_traits.read(token_id);
 
-            // Step 1 — first identity hint leaks
+            // Loss 1 — identity hint leaks
             if losses >= 1_u8 && state.trait_1_word == 0 {
                 state.trait_1_word = 'trait_1'; // oracle sets actual word
                 self.emit(TraitRevealed { token_id, reveal_level: 1_u8 });
             }
-            // Step 2 — second hint + privacy bars become accurate
+            // Loss 2 — geographic hint + bars become accurate
             if losses >= 2_u8 && state.trait_2_word == 0 {
                 state.trait_2_word = 'trait_2';
                 self.emit(TraitRevealed { token_id, reveal_level: 2_u8 });
@@ -468,17 +470,21 @@ pub mod VibeCard {
                 state.bar_fills_accurate = true;
                 self.emit(TraitRevealed { token_id, reveal_level: 3_u8 });
             }
-            // Step 3 — card colour palette revealed (big visual reveal)
-            if losses >= 3_u8 && !state.palette_revealed {
-                state.palette_revealed = true;
+            // Loss 3 — behavioral hint leaks
+            if losses >= 3_u8 && state.trait_3_word == 0 {
+                state.trait_3_word = 'trait_3'; // oracle sets actual word
                 self.emit(TraitRevealed { token_id, reveal_level: 4_u8 });
+            }
+            // Loss 4 — card colour palette cracked (big visual moment)
+            if losses >= 4_u8 && !state.palette_revealed {
+                state.palette_revealed = true;
+                self.emit(TraitRevealed { token_id, reveal_level: 5_u8 });
             }
 
             self.revealed_traits.write(token_id, state);
 
-            if losses >= 5_u8 {
-                // Full auto-reveal — requires salt from IPFS
-                // Emit event for oracle to trigger reveal
+            if losses >= 6_u8 {
+                // Full auto-reveal trigger — oracle publishes salt
                 self.emit(TraitRevealed { token_id, reveal_level: 8_u8 });
             }
 
