@@ -156,7 +156,7 @@ export function Nav() {
                 {toResolve.map((b) => (
                   <Link
                     key={`resolve-${b.battleId}`}
-                    href={`/battle/${b.battleId}`}
+                    href={`/battle/${b.defenderToken}`}
                     onClick={() => setShowMenu(false)}
                     className="flex items-center justify-between gap-2 px-4 py-2.5 text-xs font-card hover:bg-amber-500/5 transition-colors"
                     style={{ color: "#f59e0b" }}

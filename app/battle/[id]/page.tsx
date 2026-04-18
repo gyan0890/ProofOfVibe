@@ -211,6 +211,55 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     fetchDefender();
   }, [params.id, provider]);
 
+  // On mount: recover any pending battle for this defender token from localStorage
+  // Handles page refresh while waiting for defender, or returning via Nav "resolve" link
+  useEffect(() => {
+    if (!provider || defenderTokenId === null) return;
+
+    // Find a pendingBattle_* entry that matches this defender
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith("pendingBattle_"));
+    if (keys.length === 0) return;
+
+    (async () => {
+      for (const key of keys) {
+        let pending: PendingBattle;
+        try { pending = JSON.parse(localStorage.getItem(key)!) as PendingBattle; }
+        catch { continue; }
+
+        const battle = await getBattle(pending.battleId).catch(() => null);
+        if (!battle) continue;
+        // Only recover if this battle involves our defender token
+        if (battle.defenderToken !== defenderTokenId) continue;
+
+        setActiveBattle(pending);
+        setOnchainBattle(battle);
+
+        if (battle.status === 0) {
+          // Still waiting for defender — resume polling
+          setStep("waiting");
+        } else if (battle.status === 1) {
+          // Defender already committed — auto-resolve immediately
+          setStep("waiting"); // show spinner while resolving
+          const resolveResult = await resolveBattle(pending.battleId, pending.move, pending.nonce, 0, "0x1");
+          if (!resolveResult) {
+            setLocalError("Auto-resolve failed — please try again.");
+            return;
+          }
+          setTxHash(resolveResult.txHash);
+          const updated = await getBattle(pending.battleId);
+          if (updated) setOnchainBattle(updated);
+          setStep("resolved");
+          window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
+        } else if (battle.status === 2) {
+          // Already resolved — show result
+          setStep("resolved");
+        }
+        break; // only recover the first matching battle
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, defenderTokenId]);
+
   useEffect(() => {
     if (step !== "waiting" || activeBattle === null) return;
 
