@@ -13,6 +13,7 @@ import { loadLocalCard, saveCardLocally, updateLocalCard, clearLocalCard } from 
 import { useMint } from "@/hooks/useMint";
 import { useMyCard } from "@/hooks/useMyCard";
 import { usePrivacyScore } from "@/hooks/usePrivacyScore";
+import { useBattleHistory } from "@/hooks/useBattleHistory";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 
 type RevealStep = "pulse" | "flip" | "aura" | "text" | "actions";
@@ -160,6 +161,7 @@ export default function RevealPage() {
 
   const { card: onchainCard, loading: onchainLoading } = useMyCard();
   const myTokenId = onchainCard?.tokenId ?? null;
+  const { history: battleHistory, loading: historyLoading } = useBattleHistory(myTokenId);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const animationStarted = useRef(false);
   // Tracks whether the user has built a card from a fresh scan this session.
@@ -1032,6 +1034,59 @@ export default function RevealPage() {
                   >
                     View my card →
                   </Link>
+
+                  {/* Battle history */}
+                  {(battleHistory.length > 0 || historyLoading) && (
+                    <div
+                      className="w-full mt-2 rounded-2xl overflow-hidden"
+                      style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}
+                    >
+                      <p className="px-4 pt-3 pb-2 text-[10px] font-ui tracking-[0.2em] uppercase text-white/25">
+                        Battle History
+                      </p>
+                      {historyLoading && (
+                        <p className="px-4 pb-3 text-xs font-ui text-white/20">Loading…</p>
+                      )}
+                      {battleHistory.map((b) => (
+                        <div
+                          key={b.battleId}
+                          className="flex items-center justify-between gap-3 px-4 py-2.5 border-t"
+                          style={{ borderColor: "rgba(255,255,255,0.05)" }}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-ui text-white/25 shrink-0">#{b.battleId}</span>
+                            <span className="text-xs font-ui text-white/25 shrink-0">
+                              {b.role === "challenger" ? "⚔️ vs" : "🛡️ vs"}
+                            </span>
+                            <Link
+                              href={`/card/${b.opponentToken}`}
+                              className="text-xs font-card text-white/60 hover:text-white transition-colors truncate"
+                            >
+                              {b.opponentName}
+                            </Link>
+                          </div>
+                          <div className="shrink-0">
+                            {b.won === null ? (
+                              <span className="text-[10px] font-ui px-2 py-0.5 rounded-full"
+                                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>
+                                {b.status === 0 ? "pending" : "awaiting resolve"}
+                              </span>
+                            ) : b.won ? (
+                              <span className="text-[10px] font-ui px-2 py-0.5 rounded-full"
+                                style={{ background: "rgba(34,197,94,0.12)", color: "#4ade80" }}>
+                                W
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-ui px-2 py-0.5 rounded-full"
+                                style={{ background: "rgba(239,68,68,0.12)", color: "#f87171" }}>
+                                L
+              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Escape hatch — disconnect or start fresh */}
                   <div

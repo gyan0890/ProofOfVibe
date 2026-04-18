@@ -183,6 +183,13 @@ export function useBattle() {
         const result = await sendAsync([call]);
         if (!result?.transaction_hash) return null;
 
+        // Save defender's move+nonce server-side so the challenger can fetch it for resolve
+        fetch("/api/battle-defense", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ battleId, move, nonce }),
+        }).catch(() => {});
+
         return { txHash: result.transaction_hash, move, nonce };
       } catch (e: any) {
         console.error("useBattle.submitDefense error:", e);

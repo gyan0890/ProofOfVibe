@@ -240,7 +240,16 @@ export default function BattlePage({ params }: { params: { id: string } }) {
         } else if (battle.status === 1) {
           // Defender already committed — auto-resolve immediately
           setStep("waiting"); // show spinner while resolving
-          const resolveResult = await resolveBattle(pending.battleId, pending.move, pending.nonce, 0, "0x1");
+          // Fetch defender's committed move from server
+          let defenderMove = 0;
+          let defenderNonce = "0x1";
+          try {
+            const dr = await fetch(`/api/battle-defense?battleId=${pending.battleId}`);
+            const dj = await dr.json();
+            if (dj.defense) { defenderMove = dj.defense.move; defenderNonce = dj.defense.nonce; }
+          } catch {}
+
+          const resolveResult = await resolveBattle(pending.battleId, pending.move, pending.nonce, defenderMove, defenderNonce);
           if (!resolveResult) {
             setLocalError("Auto-resolve failed — please try again.");
             return;
@@ -273,7 +282,16 @@ export default function BattlePage({ params }: { params: { id: string } }) {
         const saved = localStorage.getItem(`pendingBattle_${activeBattle.battleId}`);
         let pending = activeBattle;
         if (saved) { try { pending = JSON.parse(saved) as PendingBattle; } catch { /* ignore */ } }
-        const resolveResult = await resolveBattle(pending.battleId, pending.move, pending.nonce, 0, "0x1");
+        // Fetch defender's committed move from server
+        let defenderMove = 0;
+        let defenderNonce = "0x1";
+        try {
+          const dr = await fetch(`/api/battle-defense?battleId=${pending.battleId}`);
+          const dj = await dr.json();
+          if (dj.defense) { defenderMove = dj.defense.move; defenderNonce = dj.defense.nonce; }
+        } catch {}
+
+        const resolveResult = await resolveBattle(pending.battleId, pending.move, pending.nonce, defenderMove, defenderNonce);
         if (!resolveResult) {
           setLocalError("Auto-resolve failed — please refresh and try again.");
           return;
