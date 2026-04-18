@@ -6,8 +6,9 @@ import { motion } from "framer-motion";
 import { useAccount, useDisconnect } from "@starknet-react/core";
 import { useState } from "react";
 import { truncateAddress } from "@/lib/utils";
-import { clearLocalCard, loadLocalCard } from "@/lib/storage";
+import { clearLocalCard } from "@/lib/storage";
 import { usePendingChallenges } from "@/hooks/usePendingChallenges";
+import { useMyCard } from "@/hooks/useMyCard";
 
 export function Nav() {
   const pathname = usePathname();
@@ -19,16 +20,10 @@ export function Nav() {
   const [navHandleSaved, setNavHandleSaved] = useState(false);
   const isConnected = status === "connected" && !!address;
 
-  // Resolve my token ID from localStorage
-  const myTokenId = (() => {
-    if (typeof window === "undefined" || !isConnected) return null;
-    const local = loadLocalCard();
-    if (!local?.isAnchored) return null;
-    if (local.tokenId) return local.tokenId;
-    const parts = local.id.split("-");
-    const last = Number(parts[parts.length - 1]);
-    return Number.isInteger(last) && last > 0 && last < 1_000_000 ? last : null;
-  })();
+  // Always resolve tokenId from chain so notifications work even on a fresh session
+  // (localStorage alone fails when the user hasn't visited /reveal yet)
+  const { card: myCard } = useMyCard();
+  const myTokenId = myCard?.tokenId ?? null;
 
   const { challenges, toResolve } = usePendingChallenges(myTokenId);
   // Total badge = battles I need to respond to + battles ready for me to resolve
