@@ -96,6 +96,8 @@ pub trait IVibeCard<TContractState> {
     fn token_counter(self: @TContractState) -> u256;
     fn get_token_of_owner(self: @TContractState, owner: ContractAddress) -> u256;
     fn has_card(self: @TContractState, owner: ContractAddress) -> bool;
+    fn get_season_end(self: @TContractState) -> u64;
+    fn set_season_end(ref self: TContractState, new_end: u64);
 }
 
 // Battle affinity matrix
@@ -142,6 +144,8 @@ pub mod VibeCard {
         guess_nullifier: Map<(u256, ContractAddress), u8>,
         // one card per wallet: address -> token_id (0 = no card)
         owner_to_token: Map<ContractAddress, u256>,
+        // contract owner (for admin functions like set_season_end)
+        owner: ContractAddress,
     }
 
     #[event]
@@ -196,9 +200,11 @@ pub mod VibeCard {
         ref self: ContractState,
         season_end: u64,
         season_clock: ContractAddress,
+        owner: ContractAddress,
     ) {
         self.season_end_timestamp.write(season_end);
         self.season_clock_address.write(season_clock);
+        self.owner.write(owner);
         self.token_counter.write(0_u256);
         self.battle_counter.write(0_u256);
     }
@@ -445,6 +451,16 @@ pub mod VibeCard {
 
         fn has_card(self: @ContractState, owner: ContractAddress) -> bool {
             self.owner_to_token.read(owner) != 0_u256
+        }
+
+        fn get_season_end(self: @ContractState) -> u64 {
+            self.season_end_timestamp.read()
+        }
+
+        fn set_season_end(ref self: ContractState, new_end: u64) {
+            let caller = get_caller_address();
+            assert(caller == self.owner.read(), 'Not contract owner');
+            self.season_end_timestamp.write(new_end);
         }
     }
 
