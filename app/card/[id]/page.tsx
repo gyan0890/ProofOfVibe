@@ -111,14 +111,20 @@ export default function CardPage({ params }: { params: { id: string } }) {
       // 1. Check localStorage (user's own card) — use for initial display but always
       // re-fetch losses & trait state from chain so post-battle state is current.
       const local = loadLocalCard();
-      if (local && local.id === params.id) {
-        setCard(local); // show immediately while we re-fetch
+      const isOwnCard = local && (
+        local.id === params.id ||
+        String(local.tokenId) === params.id ||
+        local.id.endsWith(`-${params.id}`)
+      );
+      if (isOwnCard) {
+        setCard(local!); // show immediately while we re-fetch
         // Fall through to chain fetch below to get fresh losses/traits
         if (!provider) { setLoading(false); return; }
       }
 
       // 3. Try fetching from chain by token ID
-      const tokenId = parseTokenId(params.id);
+      // If params.id doesn't parse directly (e.g. scan-based ID), fall back to local card's tokenId
+      const tokenId = parseTokenId(params.id) ?? (isOwnCard && local?.tokenId ? local.tokenId : null);
       if (tokenId !== null && provider) {
         try {
           const contract = new Contract({
