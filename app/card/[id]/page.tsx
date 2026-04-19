@@ -108,9 +108,14 @@ export default function CardPage({ params }: { params: { id: string } }) {
     async function loadCard() {
       setLoading(true);
 
-      // 1. Check localStorage (user's own card)
+      // 1. Check localStorage (user's own card) — use for initial display but always
+      // re-fetch losses & trait state from chain so post-battle state is current.
       const local = loadLocalCard();
-      if (local && local.id === params.id) { setCard(local); setLoading(false); return; }
+      if (local && local.id === params.id) {
+        setCard(local); // show immediately while we re-fetch
+        // Fall through to chain fetch below to get fresh losses/traits
+        if (!provider) { setLoading(false); return; }
+      }
 
       // 3. Try fetching from chain by token ID
       const tokenId = parseTokenId(params.id);
@@ -156,6 +161,14 @@ export default function CardPage({ params }: { params: { id: string } }) {
             recentBattles: [],
           };
           setCard(onchainCard);
+          // Keep localStorage in sync so reveal page and other hooks see fresh losses/traits
+          const local2 = loadLocalCard();
+          if (local2 && (local2.tokenId === tokenId || local2.id === params.id)) {
+            updateLocalCard({
+              battleRecord: onchainCard.battleRecord,
+              traitReveal: onchainCard.traitReveal,
+            });
+          }
           setLoading(false);
           return;
         } catch (e) {
