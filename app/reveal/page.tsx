@@ -818,7 +818,7 @@ export default function RevealPage() {
 
   const cardUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/card/${card.id}`
+      ? `${window.location.origin}/card/${myTokenId ?? card.tokenId ?? card.id}`
       : "";
 
   const hasPrivacy = !!card.privacyProfile;
@@ -1029,7 +1029,7 @@ export default function RevealPage() {
                   </Link>
 
                   <Link
-                    href={`/card/${card.id}`}
+                    href={`/card/${myTokenId ?? card.tokenId ?? card.id}`}
                     className="min-touch flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-card text-sm text-white/60 transition-all hover:text-white"
                   >
                     View my card →
