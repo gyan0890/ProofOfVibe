@@ -425,7 +425,9 @@ export default function RevealPage() {
   async function doMint() {
     console.log('[doMint] fired', { address, revealedType: card?.revealedType });
     if (!address || card?.revealedType === undefined) return;
-    const result = await mint(card.revealedType as VibeTypeIndex, card.personaName);
+    // Always generate a fresh name at mint time — never use the locally cached name
+    // which may have been built with an old algorithm or stale session data.
+    const result = await mint(card.revealedType as VibeTypeIndex);
     // Only mark as anchored if the transaction was actually submitted
     if (result) {
       setCard((c) => (c ? { ...c, isAnchored: true, owner: address } : c));
