@@ -73,6 +73,24 @@ export function useBattle() {
     );
   }
 
+  // Helper: run sendAsync once, retry once if Cartridge gives a nonce error
+  const sendWithNonceRetry = useCallback(
+    async (calls: Parameters<typeof sendAsync>[0]) => {
+      try {
+        return await sendAsync(calls);
+      } catch (e: any) {
+        const msg = e?.message ?? "";
+        if (msg.toLowerCase().includes("nonce") || msg.toLowerCase().includes("invalid transaction nonce")) {
+          console.warn("[useBattle] nonce error, retrying once…", msg);
+          await new Promise((r) => setTimeout(r, 1200));
+          return await sendAsync(calls);
+        }
+        throw e;
+      }
+    },
+    [sendAsync]
+  );
+
   // -------------------------------------------------------------------------
   // initiateBattle
   // -------------------------------------------------------------------------
@@ -104,7 +122,7 @@ export function useBattle() {
           ],
         };
 
-        const result = await sendAsync([call]);
+        const result = await sendWithNonceRetry([call]);
         if (!result?.transaction_hash) return null;
 
         const txHash = result.transaction_hash;
@@ -148,7 +166,7 @@ export function useBattle() {
         setLoading(false);
       }
     },
-    [address, provider, sendAsync]
+    [address, provider, sendAsync, sendWithNonceRetry]
   );
 
   // -------------------------------------------------------------------------
@@ -180,7 +198,7 @@ export function useBattle() {
           ],
         };
 
-        const result = await sendAsync([call]);
+        const result = await sendWithNonceRetry([call]);
         if (!result?.transaction_hash) return null;
 
         // Save defender's move+nonce server-side so the challenger can fetch it for resolve
@@ -199,7 +217,7 @@ export function useBattle() {
         setLoading(false);
       }
     },
-    [address, sendAsync]
+    [address, sendAsync, sendWithNonceRetry]
   );
 
   // -------------------------------------------------------------------------
@@ -232,7 +250,7 @@ export function useBattle() {
           ],
         };
 
-        const result = await sendAsync([call]);
+        const result = await sendWithNonceRetry([call]);
         if (!result?.transaction_hash) return null;
 
         return { txHash: result.transaction_hash };
@@ -244,7 +262,7 @@ export function useBattle() {
         setLoading(false);
       }
     },
-    [address, sendAsync]
+    [address, sendAsync, sendWithNonceRetry]
   );
 
   // -------------------------------------------------------------------------
@@ -265,7 +283,7 @@ export function useBattle() {
           calldata: [{ low: battleId, high: 0 }],
         };
 
-        const result = await sendAsync([call]);
+        const result = await sendWithNonceRetry([call]);
         if (!result?.transaction_hash) return null;
 
         return { txHash: result.transaction_hash };
@@ -277,7 +295,7 @@ export function useBattle() {
         setLoading(false);
       }
     },
-    [address, sendAsync]
+    [address, sendAsync, sendWithNonceRetry]
   );
 
   // -------------------------------------------------------------------------
