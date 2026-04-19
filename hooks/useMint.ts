@@ -84,7 +84,21 @@ export function useMint() {
         };
 
         console.log('[useMint] calling sendAsync with call:', call);
-        const result = await sendAsync([call]);
+        let result;
+        try {
+          result = await sendAsync([call]);
+        } catch (nonceErr: any) {
+          // Cartridge sometimes has a stale nonce on the first tx after connecting.
+          // Detect the nonce mismatch error and retry once after a short delay.
+          const msg = nonceErr?.message ?? "";
+          if (msg.toLowerCase().includes("nonce") || msg.toLowerCase().includes("invalid transaction nonce")) {
+            console.warn("[useMint] nonce error on first attempt, retrying once…", msg);
+            await new Promise((r) => setTimeout(r, 1200));
+            result = await sendAsync([call]);
+          } else {
+            throw nonceErr;
+          }
+        }
         console.log('[useMint] sendAsync result:', result);
 
         // Only mark the card as anchored if we actually got a transaction hash back.
