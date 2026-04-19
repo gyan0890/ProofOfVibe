@@ -32,6 +32,7 @@ const VIBECARD_READ_ABI = [
     members: [
       { name: "trait_1_word", type: "core::felt252" },
       { name: "trait_2_word", type: "core::felt252" },
+      { name: "trait_3_word", type: "core::felt252" },
       { name: "bar_fills_accurate", type: "core::bool" },
       { name: "palette_revealed", type: "core::bool" },
       { name: "type_revealed", type: "core::bool" },
@@ -159,6 +160,9 @@ export default function CardPage({ params }: { params: { id: string } }) {
             isAnchored: true,
             battleRecord: { wins: 0, losses, total: losses },
             traitReveal: {
+              trait1Word: traitRaw.trait_1_word && String(traitRaw.trait_1_word) !== "0" && String(traitRaw.trait_1_word) !== "0x0" ? String(traitRaw.trait_1_word) : undefined,
+              trait2Word: traitRaw.trait_2_word && String(traitRaw.trait_2_word) !== "0" && String(traitRaw.trait_2_word) !== "0x0" ? String(traitRaw.trait_2_word) : undefined,
+              trait3Word: traitRaw.trait_3_word && String(traitRaw.trait_3_word) !== "0" && String(traitRaw.trait_3_word) !== "0x0" ? String(traitRaw.trait_3_word) : undefined,
               barFillsAccurate: Boolean(traitRaw.bar_fills_accurate),
               paletteRevealed: Boolean(traitRaw.palette_revealed),
               typeRevealed: Boolean(traitRaw.type_revealed),
