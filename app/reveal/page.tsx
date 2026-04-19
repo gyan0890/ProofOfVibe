@@ -879,13 +879,24 @@ export default function RevealPage() {
                   className="text-center"
                 >
                   <p className="font-card text-xl text-white mb-1">
-                    One trait visible.{" "}
-                    <span className="text-white/40">The rest? 🔒</span>
+                    {card.traitReveal?.lossCount > 0 ? (
+                      <>
+                        {card.traitReveal.lossCount === 1 ? "One trait exposed." : `${card.traitReveal.lossCount} traits exposed.`}{" "}
+                        <span className="text-white/40">The rest? 🔒</span>
+                      </>
+                    ) : (
+                      <>
+                        All traits sealed.{" "}
+                        <span className="text-white/40">Battle to keep it that way. 🔒</span>
+                      </>
+                    )}
                   </p>
                   <p className="text-white/40 text-sm font-ui">
-                    {hasPrivacy
-                      ? "Your identity hint is public. Battle to protect what's left."
-                      : "Your first trait is public. Battle to stay mysterious."}
+                    {card.traitReveal?.lossCount > 0
+                      ? `${card.traitReveal.lossCount} battle ${card.traitReveal.lossCount === 1 ? "loss has" : "losses have"} cracked your privacy.`
+                      : hasPrivacy
+                        ? "Your identity is sealed. Win battles to protect it."
+                        : "Your card is a mystery. Keep winning."}
                   </p>
                 </motion.div>
               )}
