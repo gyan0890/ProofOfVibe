@@ -35,29 +35,37 @@ function CartridgeAutoReconnect({ cartridgeAvailable }: { cartridgeAvailable: bo
     console.log("[CartridgeAutoReconnect] found connector:", cartridge?.id ?? "none", "available ids:", connectors.map(c => c.id));
     if (!cartridge) return;
 
-    // Cartridge's base ready() always returns false.
-    // Use isReady() (Cartridge-specific) with retries to allow the iframe to load.
+    // isReady() = iframe initialized; probe() = active session exists.
+    // We must probe first — calling connect() without a session opens the popup.
     (async () => {
-      const controllerConnector = cartridge as any;
-      let attempts = 0;
-      const maxAttempts = 8;
+      const ctrl = (cartridge as any).controller;
+      if (!ctrl) {
+        console.warn("[CartridgeAutoReconnect] no controller instance found");
+        return;
+      }
       const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-      while (attempts < maxAttempts) {
+      // Wait up to ~4s for the Cartridge iframe to fully load
+      let probeResult: any = null;
+      for (let i = 0; i < 7; i++) {
         try {
-          const isReady: boolean = await (controllerConnector.isReady?.() ?? false);
-          console.log(`[CartridgeAutoReconnect] isReady() attempt ${attempts + 1}:`, isReady);
-          if (isReady) {
-            connect({ connector: cartridge });
-            return;
-          }
+          probeResult = await ctrl.probe?.();
+          console.log(`[CartridgeAutoReconnect] probe attempt ${i + 1}:`, probeResult);
+          if (probeResult && !Array.isArray(probeResult) && probeResult.username) break;
         } catch (e) {
-          console.warn(`[CartridgeAutoReconnect] isReady() attempt ${attempts + 1} threw:`, e);
+          console.warn(`[CartridgeAutoReconnect] probe attempt ${i + 1} threw:`, e);
         }
-        attempts++;
-        if (attempts < maxAttempts) await delay(600);
+        probeResult = null;
+        await delay(600);
       }
-      console.warn("[CartridgeAutoReconnect] gave up after", maxAttempts, "attempts");
+
+      if (!probeResult?.username) {
+        console.log("[CartridgeAutoReconnect] no active session — staying disconnected");
+        return;
+      }
+
+      console.log("[CartridgeAutoReconnect] session found for", probeResult.username, "— reconnecting silently");
+      connect({ connector: cartridge });
     })();
   }, [cartridgeAvailable, connectors, status, connect]);
 
