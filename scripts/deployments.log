@@ -1,0 +1,21 @@
+
+=== Deployment: 2026-04-20 ===
+Network: Starknet Sepolia
+Deployer: 0x9b54c071173038d7651f305fd5687e3d3ae6f97bfceebf22bae4b9ba413d19
+Deployer account file: ~/.starknet_accounts/starknet_open_zeppelin_accounts.json (name: deployer)
+Deployer keystore: ~/.starkli-wallets/deployer/keystore_new.json
+
+Contract: SeasonClock
+  Class hash:  0x042655fb8110aa3865875c896951df59b976d437c613066283d9472df3630c87
+  Address:     0x068c6912b4278938242cd5a2520694363081278789f866fb813863fb3e03c19e
+  Tx:          0x06e10d12bceebc658854a23fb84c19dbd3ddc0da40b7db4f4af90e98c9ff332c
+
+Contract: VibeCard
+  Class hash:  0x0216e8244cab69a483aa99a1ca4f6864bccef3c5856a688d264b1f40d937ce48
+  Address:     0x00fa5b55ac3561249d3c3488f892c109ed51e09ad8acc8afb737d504fe3703f7
+  Tx:          0x0133983790ca3b98b587d0e28abc8026ec5d546f451a291c2f31c8e04753fb83
+
+Contract: VibeLeaderboard
+  Class hash:  0x0632641cdb262ce417739421066640b5750c6a2293bf2ed7e89f96b94739a85e
+  Address:     0x04a51eaa0627c47a14cb2ad65289b64df7ab16e958bdb8093e5ca49e8e1c940f
+  Tx:          0x01cc1b135185c3fad88a6561d40948f89021ca456493c4522808a56553f69493

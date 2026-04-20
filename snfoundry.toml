@@ -1,0 +1,5 @@
+
+[sncast.deployer]
+account = "deployer"
+accounts-file = "/Users/gyan/.starknet_accounts/starknet_open_zeppelin_accounts.json"
+url = "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/C-OhdIhz7jzJWd9zgTkqT"

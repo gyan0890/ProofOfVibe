@@ -2,15 +2,17 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useAccount } from "@starknet-react/core";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 import { VibeCard } from "@/components/VibeCard";
 import { useOnchainCards } from "@/hooks/useOnchainCards";
+import { loadLocalCard } from "@/lib/storage";
 import { CardData } from "@/lib/types";
 import { revealPercent } from "@/lib/utils";
 
 // ── Card row (only shown when real onchain cards exist) ────────────────────
 
-function CardRow({ card, rank }: { card: CardData; rank: number }) {
+function CardRow({ card, rank, isOwn }: { card: CardData; rank: number; isOwn?: boolean }) {
   const primaryColor =
     card.traitReveal.paletteRevealed && card.revealedType !== undefined
       ? VIBE_TYPES[card.revealedType].primary
@@ -24,8 +26,10 @@ function CardRow({ card, rank }: { card: CardData; rank: number }) {
       transition={{ delay: rank * 0.05 }}
       className="flex items-center gap-4 px-4 py-3 rounded-xl transition-colors hover:bg-white/3"
       style={{
-        background: isTop3 ? `${primaryColor}08` : "rgba(255,255,255,0.02)",
-        border: isTop3
+        background: isOwn ? "rgba(127,119,221,0.1)" : isTop3 ? `${primaryColor}08` : "rgba(255,255,255,0.02)",
+        border: isOwn
+          ? "1px solid rgba(127,119,221,0.35)"
+          : isTop3
           ? `1px solid ${primaryColor}22`
           : "1px solid rgba(255,255,255,0.05)",
       }}
@@ -46,7 +50,13 @@ function CardRow({ card, rank }: { card: CardData; rank: number }) {
           {card.battleRecord.total} battles
         </p>
       </div>
-      <div className="text-right shrink-0">
+      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+        {isOwn && (
+          <span className="text-[9px] font-card tracking-widest uppercase px-2 py-0.5 rounded-full"
+            style={{ background: "rgba(127,119,221,0.2)", color: "#a78bfa", border: "1px solid rgba(127,119,221,0.3)" }}>
+            YOU
+          </span>
+        )}
         <p className="text-sm font-card text-white/60">
           {card.battleRecord.wins}W · {card.battleRecord.losses}L
         </p>
@@ -178,6 +188,8 @@ function ComingSoon({ loading }: { loading: boolean }) {
 
 export default function LeaderboardPage() {
   const { cards, loading } = useOnchainCards(50);
+  const { address } = useAccount();
+  const myTokenId = (() => { const l = loadLocalCard(); return l?.tokenId ?? null; })();
 
   const sorted = [...cards].sort(
     (a, b) => b.battleRecord.total - a.battleRecord.total
@@ -224,11 +236,14 @@ export default function LeaderboardPage() {
         {/* Real cards exist → show ranking */}
         {!loading && cards.length > 0 && (
           <div className="flex flex-col gap-2">
-            {sorted.map((card, i) => (
-              <Link key={card.id} href={`/card/${card.id}`}>
-                <CardRow card={card} rank={i + 1} />
-              </Link>
-            ))}
+            {sorted.map((card, i) => {
+              const isOwn = (address && card.owner && (() => { try { return BigInt(card.owner) === BigInt(address); } catch { return false; } })()) || (myTokenId !== null && card.tokenId === myTokenId);
+              return (
+                <Link key={card.id} href={`/card/${card.id}`}>
+                  <CardRow card={card} rank={i + 1} isOwn={!!isOwn} />
+                </Link>
+              );
+            })}
           </div>
         )}
 

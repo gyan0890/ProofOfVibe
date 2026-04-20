@@ -177,5 +177,20 @@ export function useMyCard() {
     });
   }, [address, fetchFromChain]);
 
+  // Re-fetch when mint resolves the tokenId (clears the fresh-session short-circuit)
+  useEffect(() => {
+    if (!address) return;
+    const onMinted = () => {
+      fetchFromChain(address).then((found) => {
+        if (found) {
+          saveCardLocally(found);
+          setCard(found);
+        }
+      });
+    };
+    window.addEventListener("proofofvibe:minted", onMinted);
+    return () => window.removeEventListener("proofofvibe:minted", onMinted);
+  }, [address, fetchFromChain]);
+
   return { card, loading };
 }

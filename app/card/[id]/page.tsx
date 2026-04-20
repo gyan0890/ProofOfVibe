@@ -149,6 +149,27 @@ export default function CardPage({ params }: { params: { id: string } }) {
             catch { return `Vibe #${tokenId}`; }
           })();
 
+          // Decode trait words — contract stores Cairo short strings like 'identity'
+          const decodeFelt = (val: any): string | undefined => {
+            const s = String(val ?? "");
+            if (!val || s === "0" || s === "0x0") return undefined;
+            try { return shortString.decodeShortString(s); } catch { return s || undefined; }
+          };
+
+          // Fetch privacy profile stored in Redis at mint time — enables real labels/scores
+          let storedPrivacyProfile: import("@/lib/types").PrivacyProfile | undefined;
+          try {
+            const tr = await fetch(`/api/card-traits?tokenId=${tokenId}`);
+            const tj = await tr.json();
+            if (tj.traits) storedPrivacyProfile = tj.traits as import("@/lib/types").PrivacyProfile;
+          } catch {}
+
+          // If own card, prefer localStorage profile (most up-to-date)
+          const localFresh = loadLocalCard();
+          if (!storedPrivacyProfile && localFresh?.tokenId === tokenId && localFresh.privacyProfile) {
+            storedPrivacyProfile = localFresh.privacyProfile;
+          }
+
           const onchainCard: CardData = {
             id: params.id,
             owner,
@@ -159,10 +180,11 @@ export default function CardPage({ params }: { params: { id: string } }) {
             personaName,
             isAnchored: true,
             battleRecord: { wins: 0, losses, total: losses },
+            privacyProfile: storedPrivacyProfile,
             traitReveal: {
-              trait1Word: traitRaw.trait_1_word && String(traitRaw.trait_1_word) !== "0" && String(traitRaw.trait_1_word) !== "0x0" ? String(traitRaw.trait_1_word) : undefined,
-              trait2Word: traitRaw.trait_2_word && String(traitRaw.trait_2_word) !== "0" && String(traitRaw.trait_2_word) !== "0x0" ? String(traitRaw.trait_2_word) : undefined,
-              trait3Word: traitRaw.trait_3_word && String(traitRaw.trait_3_word) !== "0" && String(traitRaw.trait_3_word) !== "0x0" ? String(traitRaw.trait_3_word) : undefined,
+              trait1Word: decodeFelt(traitRaw.trait_1_word),
+              trait2Word: decodeFelt(traitRaw.trait_2_word),
+              trait3Word: decodeFelt(traitRaw.trait_3_word),
               barFillsAccurate: Boolean(traitRaw.bar_fills_accurate),
               paletteRevealed: Boolean(traitRaw.palette_revealed),
               typeRevealed: Boolean(traitRaw.type_revealed),
@@ -329,24 +351,30 @@ export default function CardPage({ params }: { params: { id: string } }) {
               const milestones = [
                 {
                   lossThreshold: 1,
-                  label: "Identity Leaks",
-                  detail: "Who you are starts showing",
-                  icon: "👤",
+                  label: "First Crack",
+                  detail: card.traitReveal.trait1Word
+                    ? "Identity dimension exposed"
+                    : card.traitReveal.trait2Word
+                    ? "Geographic dimension exposed"
+                    : card.traitReveal.trait3Word
+                    ? "Financial dimension exposed"
+                    : "A privacy dimension cracked",
+                  icon: "💀",
                   reached: losses >= 1,
                   color: "#a78bfa",
                 },
                 {
                   lossThreshold: 2,
-                  label: "Location + Stats",
-                  detail: "Geographic hint & scores go accurate",
+                  label: "Scores Real",
+                  detail: "All bar scores become accurate + behavioral hint leaks",
                   icon: "📊",
                   reached: losses >= 2,
                   color: "#7F77DD",
                 },
                 {
                   lossThreshold: 3,
-                  label: "Behaviour Exposed",
-                  detail: "On-chain behaviour pattern leaks",
+                  label: "Second Crack",
+                  detail: "Another privacy dimension exposed",
                   icon: "🧠",
                   reached: losses >= 3,
                   color: "#D4537E",
@@ -354,7 +382,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
                 {
                   lossThreshold: 4,
                   label: "Palette Cracked",
-                  detail: "Card colour revealed",
+                  detail: "Card colour fully revealed",
                   icon: "🎨",
                   reached: losses >= 4,
                   color: "#F59E0B",
@@ -482,9 +510,10 @@ export default function CardPage({ params }: { params: { id: string } }) {
             {(() => {
               const localCard = loadLocalCard();
               const isOwnCard =
-                (address && card.owner &&
-                  card.owner.toLowerCase() === address.toLowerCase()) ||
-                (localCard && localCard.id === params.id);
+                (address && card.owner && (() => {
+                  try { return BigInt(card.owner) === BigInt(address); } catch { return false; }
+                })()) ||
+                (localCard && (localCard.id === params.id || String(localCard.tokenId) === params.id));
 
               if (!isOwnCard || pendingBattles.length === 0) return null;
 
@@ -518,9 +547,10 @@ export default function CardPage({ params }: { params: { id: string } }) {
             {(() => {
               const localCard = loadLocalCard();
               const isOwnCard =
-                (address && card.owner &&
-                  card.owner.toLowerCase() === address.toLowerCase()) ||
-                (localCard && localCard.id === params.id);
+                (address && card.owner && (() => {
+                  try { return BigInt(card.owner) === BigInt(address); } catch { return false; }
+                })()) ||
+                (localCard && (localCard.id === params.id || String(localCard.tokenId) === params.id));
 
               if (isOwnCard) {
                 return (

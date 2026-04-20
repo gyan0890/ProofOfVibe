@@ -158,6 +158,19 @@ export function useMint() {
           if (tokenId > 0) {
             updateLocalCard({ id: `${address}-${tokenId}`, tokenId });
             console.log("[useMint] resolved tokenId:", tokenId);
+            // Signal reveal page / useMyCard to re-fetch with the real tokenId
+            window.dispatchEvent(new CustomEvent("proofofvibe:minted", { detail: { tokenId } }));
+
+            // Store the privacy profile in Redis so any viewer can access
+            // the real labels+scores when traits get cracked in battles
+            const freshCard = loadLocalCard();
+            if (freshCard?.privacyProfile) {
+              fetch("/api/card-traits", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tokenId, privacyProfile: freshCard.privacyProfile }),
+              }).catch(() => {});
+            }
           }
         } catch (resolveErr) {
           console.warn("[useMint] token ID resolution failed:", resolveErr);

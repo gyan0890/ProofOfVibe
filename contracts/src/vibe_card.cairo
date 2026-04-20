@@ -15,7 +15,7 @@ pub struct CardData {
 pub struct TraitRevealState {
     pub trait_1_word: felt252,   // 0 = not revealed (identity)
     pub trait_2_word: felt252,   // 0 = not revealed (geographic)
-    pub trait_3_word: felt252,   // 0 = not revealed (behavioral)
+    pub trait_3_word: felt252,   // 0 = not revealed (financial)
     pub bar_fills_accurate: bool,
     pub palette_revealed: bool,
     pub type_revealed: bool,
@@ -366,8 +366,12 @@ pub mod VibeCard {
             battle.winner = winner;
             self.battles.write(battle_id, battle);
 
-            // Apply trait exposure to loser
-            let traits_exposed = self._apply_trait_exposure(loser);
+            // The winner's move determines which privacy dimension cracks on the loser's card:
+            // Move 0 (Identity Attack)   -> exposes identity dimension (trait_1_word)
+            // Move 1 (Geographic Strike) -> exposes geographic dimension (trait_2_word)
+            // Move 2 (Financial Raid)    -> exposes financial dimension (trait_3_word)
+            let winner_move = if challenger_wins { challenger_move } else { defender_move };
+            let traits_exposed = self._apply_trait_exposure(loser, winner_move);
 
             self.emit(BattleResolved {
                 battle_id,
@@ -466,32 +470,65 @@ pub mod VibeCard {
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
-        fn _apply_trait_exposure(ref self: ContractState, token_id: u256) -> u8 {
+        /// Apply trait exposure to the loser's card after a battle.
+        /// winner_move determines which privacy dimension is cracked:
+        ///   0 = Identity Attack   -> trait_1_word = 'identity'
+        ///   1 = Geographic Strike -> trait_2_word = 'geographic'
+        ///   2 = Financial Raid    -> trait_3_word = 'financial'
+        /// If the targeted dimension is already exposed, the next available one is cracked.
+        /// Milestones: loss 2 -> bars accurate, loss 4 -> palette cracked.
+        fn _apply_trait_exposure(ref self: ContractState, token_id: u256, winner_move: u8) -> u8 {
             let losses = self.battle_losses.read(token_id) + 1_u8;
             self.battle_losses.write(token_id, losses);
 
             let mut state = self.revealed_traits.read(token_id);
 
-            // Loss 1 — identity hint leaks
-            if losses >= 1_u8 && state.trait_1_word == 0 {
-                state.trait_1_word = 'trait_1'; // oracle sets actual word
-                self.emit(TraitRevealed { token_id, reveal_level: 1_u8 });
+            // --- Move-targeted dimension crack ---
+            if winner_move == 0_u8 {
+                // Identity Attack -> crack identity first, fallback to geographic, then financial
+                if state.trait_1_word == 0 {
+                    state.trait_1_word = 'identity';
+                    self.emit(TraitRevealed { token_id, reveal_level: 1_u8 });
+                } else if state.trait_2_word == 0 {
+                    state.trait_2_word = 'geographic';
+                    self.emit(TraitRevealed { token_id, reveal_level: 2_u8 });
+                } else if state.trait_3_word == 0 {
+                    state.trait_3_word = 'financial';
+                    self.emit(TraitRevealed { token_id, reveal_level: 3_u8 });
+                }
+            } else if winner_move == 1_u8 {
+                // Geographic Strike -> crack geographic first, fallback to identity, then financial
+                if state.trait_2_word == 0 {
+                    state.trait_2_word = 'geographic';
+                    self.emit(TraitRevealed { token_id, reveal_level: 2_u8 });
+                } else if state.trait_1_word == 0 {
+                    state.trait_1_word = 'identity';
+                    self.emit(TraitRevealed { token_id, reveal_level: 1_u8 });
+                } else if state.trait_3_word == 0 {
+                    state.trait_3_word = 'financial';
+                    self.emit(TraitRevealed { token_id, reveal_level: 3_u8 });
+                }
+            } else {
+                // Move 2 (Financial Raid) or unknown -> crack financial first, fallback identity, geographic
+                if state.trait_3_word == 0 {
+                    state.trait_3_word = 'financial';
+                    self.emit(TraitRevealed { token_id, reveal_level: 3_u8 });
+                } else if state.trait_1_word == 0 {
+                    state.trait_1_word = 'identity';
+                    self.emit(TraitRevealed { token_id, reveal_level: 1_u8 });
+                } else if state.trait_2_word == 0 {
+                    state.trait_2_word = 'geographic';
+                    self.emit(TraitRevealed { token_id, reveal_level: 2_u8 });
+                }
             }
-            // Loss 2 — geographic hint + bars become accurate
-            if losses >= 2_u8 && state.trait_2_word == 0 {
-                state.trait_2_word = 'trait_2';
-                self.emit(TraitRevealed { token_id, reveal_level: 2_u8 });
-            }
+
+            // --- Milestone: loss 2 -> activity bars become accurate ---
             if losses >= 2_u8 && !state.bar_fills_accurate {
                 state.bar_fills_accurate = true;
-                self.emit(TraitRevealed { token_id, reveal_level: 3_u8 });
+                self.emit(TraitRevealed { token_id, reveal_level: 10_u8 });
             }
-            // Loss 3 — behavioral hint leaks
-            if losses >= 3_u8 && state.trait_3_word == 0 {
-                state.trait_3_word = 'trait_3'; // oracle sets actual word
-                self.emit(TraitRevealed { token_id, reveal_level: 4_u8 });
-            }
-            // Loss 4 — card colour palette cracked (big visual moment)
+
+            // --- Milestone: loss 4 -> card colour palette fully cracked ---
             if losses >= 4_u8 && !state.palette_revealed {
                 state.palette_revealed = true;
                 self.emit(TraitRevealed { token_id, reveal_level: 5_u8 });
@@ -500,7 +537,7 @@ pub mod VibeCard {
             self.revealed_traits.write(token_id, state);
 
             if losses >= 6_u8 {
-                // Full auto-reveal trigger — oracle publishes salt
+                // Full auto-reveal trigger -- oracle publishes salt
                 self.emit(TraitRevealed { token_id, reveal_level: 8_u8 });
             }
 
