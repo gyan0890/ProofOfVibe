@@ -4,12 +4,17 @@ import { StarknetConfig, jsonRpcProvider, argent, braavos, useConnect, useAccoun
 import { sepolia } from "@starknet-react/chains";
 import { ReactNode, useMemo, useState, useEffect } from "react";
 
-/**
- * Re-attempts auto-reconnect once the Cartridge connector finishes loading.
- * starknet-react's built-in autoConnect runs once on mount — but Cartridge is
- * lazy-loaded via useEffect, so it's missing from the connectors list at that
- * moment.  This component fires when cartridgeAvailable flips true and retries.
- */
+/** Persists which connector was last used so CartridgeAutoReconnect can restore it on refresh. */
+function ConnectorPersist() {
+  const { status, connector } = useAccount();
+  useEffect(() => {
+    if (status === "connected" && connector?.id) {
+      localStorage.setItem("lastUsedConnector", connector.id);
+    }
+  }, [status, connector]);
+  return null;
+}
+
 function CartridgeAutoReconnect({ cartridgeAvailable }: { cartridgeAvailable: boolean }) {
   const { connect, connectors } = useConnect();
   const { status } = useAccount();
@@ -88,6 +93,7 @@ export function Providers({ children }: { children: ReactNode }) {
       connectors={connectors}
       autoConnect
     >
+      <ConnectorPersist />
       <CartridgeAutoReconnect cartridgeAvailable={!!ControllerConnector} />
       {children}
     </StarknetConfig>

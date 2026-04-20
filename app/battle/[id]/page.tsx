@@ -113,6 +113,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
   const [onchainBattle, setOnchainBattle] = useState<OnchainBattle | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [xHandle, setXHandle] = useState(""); // defender handle
   const [myXHandle, setMyXHandle] = useState(""); // challenger handle
 
@@ -310,7 +311,8 @@ export default function BattlePage({ params }: { params: { id: string } }) {
   }, [step, activeBattle, getBattle, resolveBattle]);
 
   async function handleCommitMove(moveIndex: number) {
-    if (challengerTokenId === null || defenderTokenId === null) return;
+    if (submitting || challengerTokenId === null || defenderTokenId === null) return;
+    setSubmitting(true);
     setSelectedMove(moveIndex);
     setLocalError(null);
 
@@ -325,6 +327,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
 
     if (!result) {
       setLocalError(battleError ?? "Transaction failed");
+      setSubmitting(false);
       return;
     }
 
@@ -494,7 +497,8 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                       whileHover={{ scale: 1.02, x: 4 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => handleCommitMove(i)}
-                      className="min-touch p-5 rounded-2xl text-left flex items-center gap-4"
+                      disabled={submitting || battleLoading}
+                      className="min-touch p-5 rounded-2xl text-left flex items-center gap-4 disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                     >
                       <span

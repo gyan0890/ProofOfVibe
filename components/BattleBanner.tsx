@@ -91,7 +91,7 @@ export function BattleBanner() {
                 {toResolve.map((b) => (
                   <Link
                     key={b.battleId}
-                    href={`/battle/${b.battleId}`}
+                    href={`/battle/${b.defenderToken}`}
                     className="px-3 py-1 rounded-lg text-xs font-card font-medium text-white transition-all hover:scale-105"
                     style={{
                       background: "rgba(245,158,11,0.5)",
