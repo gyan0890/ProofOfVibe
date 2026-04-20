@@ -35,13 +35,30 @@ function CartridgeAutoReconnect({ cartridgeAvailable }: { cartridgeAvailable: bo
     console.log("[CartridgeAutoReconnect] found connector:", cartridge?.id ?? "none", "available ids:", connectors.map(c => c.id));
     if (!cartridge) return;
 
-    cartridge
-      .ready()
-      .then((isReady) => {
-        console.log("[CartridgeAutoReconnect] connector.ready():", isReady);
-        if (isReady) connect({ connector: cartridge });
-      })
-      .catch((e) => { console.warn("[CartridgeAutoReconnect] ready() threw:", e); });
+    // Cartridge's base ready() always returns false.
+    // Use isReady() (Cartridge-specific) with retries to allow the iframe to load.
+    (async () => {
+      const controllerConnector = cartridge as any;
+      let attempts = 0;
+      const maxAttempts = 8;
+      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+      while (attempts < maxAttempts) {
+        try {
+          const isReady: boolean = await (controllerConnector.isReady?.() ?? false);
+          console.log(`[CartridgeAutoReconnect] isReady() attempt ${attempts + 1}:`, isReady);
+          if (isReady) {
+            connect({ connector: cartridge });
+            return;
+          }
+        } catch (e) {
+          console.warn(`[CartridgeAutoReconnect] isReady() attempt ${attempts + 1} threw:`, e);
+        }
+        attempts++;
+        if (attempts < maxAttempts) await delay(600);
+      }
+      console.warn("[CartridgeAutoReconnect] gave up after", maxAttempts, "attempts");
+    })();
   }, [cartridgeAvailable, connectors, status, connect]);
 
   return null;
