@@ -9,6 +9,7 @@ function ConnectorPersist() {
   const { status, connector } = useAccount();
   useEffect(() => {
     if (status === "connected" && connector?.id) {
+      console.log("[ConnectorPersist] saving lastUsedConnector:", connector.id);
       localStorage.setItem("lastUsedConnector", connector.id);
     }
   }, [status, connector]);
@@ -20,22 +21,27 @@ function CartridgeAutoReconnect({ cartridgeAvailable }: { cartridgeAvailable: bo
   const { status } = useAccount();
 
   useEffect(() => {
+    console.log("[CartridgeAutoReconnect] fired — cartridgeAvailable:", cartridgeAvailable, "status:", status);
     if (!cartridgeAvailable) return;
     if (status === "connected") return;
 
     const lastUsed =
       typeof window !== "undefined" ? localStorage.getItem("lastUsedConnector") : null;
-    if (lastUsed !== "cartridge") return;
+    console.log("[CartridgeAutoReconnect] lastUsedConnector:", lastUsed);
+    // Cartridge connector id is "controller" (not "cartridge")
+    if (lastUsed !== "controller") return;
 
-    const cartridge = connectors.find((c) => c.id === "cartridge");
+    const cartridge = connectors.find((c) => c.id === "controller");
+    console.log("[CartridgeAutoReconnect] found connector:", cartridge?.id ?? "none", "available ids:", connectors.map(c => c.id));
     if (!cartridge) return;
 
     cartridge
       .ready()
       .then((isReady) => {
+        console.log("[CartridgeAutoReconnect] connector.ready():", isReady);
         if (isReady) connect({ connector: cartridge });
       })
-      .catch(() => {});
+      .catch((e) => { console.warn("[CartridgeAutoReconnect] ready() threw:", e); });
   }, [cartridgeAvailable, connectors, status, connect]);
 
   return null;
