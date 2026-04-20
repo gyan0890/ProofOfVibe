@@ -47,7 +47,7 @@ export default function QuizPage() {
           paletteRevealed: true,        // colour visible from day 1
           typeRevealed: false,          // type name stays hidden
           lossCount: 0,
-          trait1Word: profile.identityLabel, // identity dimension publicly shown
+          // trait words are sealed — only cracked by battle attacks on-chain
         },
         recentBattles: [],
         privacyProfile: profile,
