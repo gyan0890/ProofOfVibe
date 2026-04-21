@@ -287,7 +287,7 @@ export default function RevealPage() {
           paletteRevealed: true,  // colour visible from creation
           typeRevealed: false,    // name stays hidden
           lossCount: 0,
-          trait1Word: firstTrait, // identity dimension publicly shown
+          // trait words sealed — only revealed via battle attacks on-chain
         },
         recentBattles: [],
         privacyProfile,
@@ -338,8 +338,7 @@ export default function RevealPage() {
         paletteRevealed: true,               // colour visible from creation
         typeRevealed: false,                  // name stays hidden
         lossCount: 0,
-        trait1Word: scanProfile.identityLabel, // identity is the publicly shown trait
-        // trait2Word, trait3 stay hidden until battle losses reveal them
+        // trait words sealed — only revealed via battle attacks on-chain
       },
       recentBattles: [],
       privacyProfile: scanProfile,
@@ -454,7 +453,7 @@ export default function RevealPage() {
         paletteRevealed: true,
         typeRevealed: false,
         lossCount: 0,
-        trait1Word: scanProfile.identityLabel,
+        // trait words sealed — only revealed via battle attacks on-chain
       },
       recentBattles: [],
       privacyProfile: scanProfile,

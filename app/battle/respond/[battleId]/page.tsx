@@ -315,6 +315,21 @@ export default function RespondPage({ params }: { params: { battleId: string } }
                   View on Voyager ↗
                 </a>
               )}
+              {/* Post to X */}
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                  `I just defended my Vibe onchain in Proof of Vibe! 🛡️\n\nBattle #${battleId}${defenderCard?.personaName ? ` — ${defenderCard.personaName}` : ""} held the line. Identity still sealed.\n\nChallenge me → https://proof-of-vibe-kohl.vercel.app #ProofOfVibe #Starknet`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-touch flex items-center gap-2 px-5 py-2.5 rounded-xl font-card text-sm text-white transition-all hover:scale-105"
+                style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.15)" }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+                Post to X
+              </a>
               <div className="flex gap-3">
                 {defenderCard && (
                   <Link href={`/card/${defenderCard.id}`}

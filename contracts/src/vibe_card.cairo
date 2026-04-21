@@ -93,6 +93,7 @@ pub trait IVibeCard<TContractState> {
     fn get_battle(self: @TContractState, battle_id: u256) -> BattleData;
     fn get_trait_state(self: @TContractState, token_id: u256) -> TraitRevealState;
     fn get_battle_losses(self: @TContractState, token_id: u256) -> u8;
+    fn get_battle_wins(self: @TContractState, token_id: u256) -> u8;
     fn token_counter(self: @TContractState) -> u256;
     fn get_token_of_owner(self: @TContractState, owner: ContractAddress) -> u256;
     fn has_card(self: @TContractState, owner: ContractAddress) -> bool;
@@ -134,6 +135,7 @@ pub mod VibeCard {
     struct Storage {
         cards: Map<u256, CardData>,
         battle_losses: Map<u256, u8>,
+        battle_wins: Map<u256, u8>,
         revealed_traits: Map<u256, TraitRevealState>,
         battles: Map<u256, BattleData>,
         battle_counter: u256,
@@ -249,6 +251,7 @@ pub mod VibeCard {
             };
             self.revealed_traits.write(token_id, trait_state);
             self.battle_losses.write(token_id, 0_u8);
+            self.battle_wins.write(token_id, 0_u8);
             self.owner_to_token.write(caller, token_id);
 
             self.emit(CardMinted {
@@ -342,18 +345,34 @@ pub mod VibeCard {
             let c_type = challenger_card.revealed_type;
             let d_type = defender_card.revealed_type;
 
+            // Score comparison helper: lower score wins (less privacy exposure = better privacy).
+            // Score 0 means inactive wallet — always loses unless both are 0 (fall back to moves).
+            let c_score = battle.challenger_activity_score;
+            let d_score = battle.defender_activity_score;
+            let score_challenger_wins = if c_score == 0_u32 && d_score == 0_u32 {
+                // Both inactive — fall back to move comparison
+                challenger_move > defender_move
+            } else if c_score == 0_u32 {
+                false // challenger inactive, defender wins
+            } else if d_score == 0_u32 {
+                true  // defender inactive, challenger wins
+            } else {
+                // Both active — lower score wins
+                c_score <= d_score
+            };
+
             let challenger_wins = if c_type != 255_u8 && d_type != 255_u8 {
                 if affinity_beats(c_type, d_type) {
                     true
                 } else if affinity_beats(d_type, c_type) {
                     false
                 } else {
-                    battle.challenger_activity_score >= battle.defender_activity_score
+                    // Affinity tie — use score logic
+                    score_challenger_wins
                 }
             } else {
-                // Move-based resolution when types hidden
-                // Higher move index beats lower (simplified)
-                challenger_move > defender_move
+                // Types hidden — use score logic
+                score_challenger_wins
             };
 
             let (winner, loser) = if challenger_wins {
@@ -361,6 +380,10 @@ pub mod VibeCard {
             } else {
                 (battle.defender_token, battle.challenger_token)
             };
+
+            // Track wins for the winner
+            let current_wins = self.battle_wins.read(winner);
+            self.battle_wins.write(winner, current_wins + 1_u8);
 
             battle.status = 2_u8;
             battle.winner = winner;
@@ -443,6 +466,10 @@ pub mod VibeCard {
 
         fn get_battle_losses(self: @ContractState, token_id: u256) -> u8 {
             self.battle_losses.read(token_id)
+        }
+
+        fn get_battle_wins(self: @ContractState, token_id: u256) -> u8 {
+            self.battle_wins.read(token_id)
         }
 
         fn token_counter(self: @ContractState) -> u256 {

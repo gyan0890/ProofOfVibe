@@ -52,6 +52,13 @@ const VIBECARD_READ_ABI = [
     outputs: [{ type: "core::integer::u8" }],
     state_mutability: "view",
   },
+  {
+    type: "function",
+    name: "get_battle_wins",
+    inputs: [{ name: "token_id", type: "core::integer::u256" }],
+    outputs: [{ type: "core::integer::u8" }],
+    state_mutability: "view",
+  },
 ] as const;
 
 export function useOnchainCards(limit = 50) {
@@ -84,14 +91,16 @@ export function useOnchainCards(limit = 50) {
         const ids = Array.from({ length: total }, (_, i) => i + 1);
         const results = await Promise.allSettled(
           ids.map(async (id) => {
-            const [raw, lossesRaw] = await Promise.all([
+            const [raw, lossesRaw, winsRaw] = await Promise.all([
               contract.get_card({ low: id, high: 0 }),
               contract.get_battle_losses({ low: id, high: 0 }),
+              contract.get_battle_wins({ low: id, high: 0 }),
             ]);
 
             const owner: string = raw.owner?.toString() ?? "0x0";
             const revealed = Number(raw.revealed_type);
             const losses = Number(lossesRaw);
+            const wins = Number(winsRaw);
 
             const personaName = (() => {
               try {
@@ -110,7 +119,7 @@ export function useOnchainCards(limit = 50) {
               mintTimestamp: Number(raw.mint_timestamp) * 1000,
               personaName,
               isAnchored: true,
-              battleRecord: { wins: 0, losses, total: losses },
+              battleRecord: { wins, losses, total: wins + losses },
               traitReveal: {
                 barFillsAccurate: false,
                 paletteRevealed: Boolean(raw.palette_revealed),

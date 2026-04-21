@@ -104,6 +104,13 @@ export default function CardPage({ params }: { params: { id: string } }) {
   );
   const { getBattle } = useBattle();
   const [pendingBattles, setPendingBattles] = useState<Array<{ battleId: number; battle: OnchainBattle }>>([]);
+  const [battleHistory, setBattleHistory] = useState<Array<{
+    battleId: number;
+    won: boolean;
+    opponentTokenId: number;
+    opponentPersona: string;
+    timestamp: number;
+  }>>([]);
 
   useEffect(() => {
     async function loadCard() {
@@ -237,6 +244,50 @@ export default function CardPage({ params }: { params: { id: string } }) {
 
     scanPendingBattles();
   }, [params.id, getBattle]);
+
+  // Scan for resolved battles involving this card — build battle history
+  useEffect(() => {
+    const tokenId = parseTokenId(params.id);
+    if (tokenId === null || !provider) return;
+
+    async function loadBattleHistory() {
+      const MAX = 50;
+      const ids = Array.from({ length: MAX }, (_, i) => i + 1);
+      const results = await Promise.all(ids.map((id) => getBattle(id).catch(() => null)));
+
+      const contract = new Contract({
+        abi: VIBECARD_READ_ABI as any,
+        address: CONTRACT_ADDRESSES.vibeCard,
+        providerOrAccount: provider,
+      });
+
+      const fetchPersona = async (tid: number): Promise<string> => {
+        try {
+          const raw = await contract.get_card({ low: tid, high: 0 });
+          return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0");
+        } catch { return `Card #${tid}`; }
+      };
+
+      const history: typeof battleHistory = [];
+      for (let i = 0; i < results.length; i++) {
+        const b = results[i];
+        if (!b || b.status !== 2) continue; // only resolved battles
+        const isChallenger = b.challengerToken === tokenId;
+        const isDefender = b.defenderToken === tokenId;
+        if (!isChallenger && !isDefender) continue;
+
+        const opponentTokenId = isChallenger ? b.defenderToken : b.challengerToken;
+        const won = b.winner === tokenId;
+        const opponentPersona = await fetchPersona(opponentTokenId);
+        history.push({ battleId: i + 1, won, opponentTokenId, opponentPersona, timestamp: b.initiatedAt });
+      }
+
+      history.sort((a, b) => b.timestamp - a.timestamp);
+      setBattleHistory(history);
+    }
+
+    loadBattleHistory();
+  }, [params.id, provider, getBattle]);
 
   if (loading) {
     return (
@@ -630,34 +681,46 @@ export default function CardPage({ params }: { params: { id: string } }) {
               );
             })()}
 
-            {/* Recent battles */}
-            {card.recentBattles.length > 0 && (
+            {/* Battle history */}
+            {battleHistory.length > 0 && (
               <div>
-                <h3 className="font-card font-medium text-white/60 mb-3 text-sm">Recent Battles</h3>
+                <h3 className="font-card font-medium text-white/60 mb-3 text-sm tracking-wider uppercase text-xs">Battle History</h3>
                 <div className="flex flex-col gap-2">
-                  {card.recentBattles.slice(0, 5).map((b) => (
+                  {battleHistory.slice(0, 8).map((b) => (
                     <div
                       key={b.battleId}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg"
                       style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
                     >
                       <span
-                        className="text-xs font-bold px-2 py-0.5 rounded"
+                        className="text-xs font-bold px-2 py-0.5 rounded shrink-0"
                         style={{
                           background: b.won ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
                           color: b.won ? "#22c55e" : "#ef4444",
+                          border: `1px solid ${b.won ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
                         }}
                       >
                         {b.won ? "W" : "L"}
                       </span>
-                      <span className="text-xs text-white/50 font-ui flex-1">{b.opponentPersona}</span>
-                      <span className="text-xs text-white/20 font-ui">
-                        {new Date(b.timestamp).toLocaleDateString()}
+                      <span className="text-xs text-white/60 font-ui flex-1 truncate">
+                        {b.won ? "Defeated" : "Lost to"}{" "}
+                        <Link
+                          href={`/card/${b.opponentTokenId}`}
+                          className="text-violet-400/80 hover:text-violet-400 transition-colors"
+                        >
+                          {b.opponentPersona}
+                        </Link>
+                      </span>
+                      <span className="text-[10px] text-white/20 font-ui shrink-0">
+                        #{b.battleId}
                       </span>
                     </div>
                   ))}
                 </div>
               </div>
+            )}
+            {battleHistory.length === 0 && card.battleRecord.total === 0 && (
+              <p className="text-xs text-white/20 font-ui text-center py-2">No battles yet</p>
             )}
           </motion.div>
         </div>

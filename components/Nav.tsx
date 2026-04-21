@@ -152,18 +152,16 @@ export function Nav() {
                   </Link>
                 ))}
 
-                {/* Challenger: battles where defender committed, ready to resolve */}
+                {/* Challenger: defender committed — oracle auto-resolves within ~2 min */}
                 {toResolve.map((b) => (
-                  <Link
+                  <div
                     key={`resolve-${b.battleId}`}
-                    href={`/battle/${b.defenderToken}`}
-                    onClick={() => setShowMenu(false)}
-                    className="flex items-center justify-between gap-2 px-4 py-2.5 text-xs font-card hover:bg-amber-500/5 transition-colors"
-                    style={{ color: "#f59e0b" }}
+                    className="flex items-center justify-between gap-2 px-4 py-2.5 text-xs font-card"
+                    style={{ color: "#f59e0b", opacity: 0.7 }}
                   >
-                    <span>⚡ Battle #{b.battleId}</span>
-                    <span className="text-[10px] text-amber-400/60 shrink-0">resolve →</span>
-                  </Link>
+                    <span>⚙️ Battle #{b.battleId}</span>
+                    <span className="text-[10px] text-amber-400/60 shrink-0">resolving…</span>
+                  </div>
                 ))}
 
                 <Link

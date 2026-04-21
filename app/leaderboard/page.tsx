@@ -191,9 +191,14 @@ export default function LeaderboardPage() {
   const { address } = useAccount();
   const myTokenId = (() => { const l = loadLocalCard(); return l?.tokenId ?? null; })();
 
-  const sorted = [...cards].sort(
-    (a, b) => b.battleRecord.total - a.battleRecord.total
-  );
+  const sorted = [...cards].sort((a, b) => {
+    // Primary: most wins
+    if (b.battleRecord.wins !== a.battleRecord.wins) return b.battleRecord.wins - a.battleRecord.wins;
+    // Secondary: fewest losses
+    if (a.battleRecord.losses !== b.battleRecord.losses) return a.battleRecord.losses - b.battleRecord.losses;
+    // Tertiary: most total battles (active players)
+    return b.battleRecord.total - a.battleRecord.total;
+  });
 
   return (
     <div className="min-h-screen bg-[#080810] px-6 py-12">

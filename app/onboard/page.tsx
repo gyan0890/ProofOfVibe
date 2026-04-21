@@ -40,32 +40,7 @@ export default function OnboardPage() {
         </p>
 
         <div className="flex flex-col gap-4">
-          {/* Retrieve existing card */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setShowConnectModal(true)}
-            className="min-touch w-full p-5 rounded-2xl text-left flex items-start gap-4 transition-all"
-            style={{
-              background: "rgba(127,119,221,0.08)",
-              border: "1px solid rgba(127,119,221,0.25)",
-            }}
-          >
-            <span className="text-3xl mt-0.5">🔗</span>
-            <div className="flex-1">
-              <p className="font-card font-medium text-white mb-1">
-                Connect wallet
-              </p>
-              <p className="text-white/40 text-sm font-ui">
-                Already minted? Connect to retrieve your card and jump back into battle.
-              </p>
-              <p className="text-violet-400 text-xs font-ui mt-2">
-                Argent X · Braavos · Cartridge Controller
-              </p>
-            </div>
-          </motion.button>
-
-          {/* New card via quiz */}
+          {/* New card via reveal — shown first */}
           <Link href="/reveal">
             <motion.div
               whileHover={{ scale: 1.02 }}
@@ -90,6 +65,31 @@ export default function OnboardPage() {
               </div>
             </motion.div>
           </Link>
+
+          {/* Retrieve existing card */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowConnectModal(true)}
+            className="min-touch w-full p-5 rounded-2xl text-left flex items-start gap-4 transition-all"
+            style={{
+              background: "rgba(127,119,221,0.08)",
+              border: "1px solid rgba(127,119,221,0.25)",
+            }}
+          >
+            <span className="text-3xl mt-0.5">🔗</span>
+            <div className="flex-1">
+              <p className="font-card font-medium text-white mb-1">
+                Connect wallet
+              </p>
+              <p className="text-white/40 text-sm font-ui">
+                Already minted? Connect to retrieve your card and jump back into battle.
+              </p>
+              <p className="text-violet-400 text-xs font-ui mt-2">
+                Argent X · Braavos · Cartridge Controller
+              </p>
+            </div>
+          </motion.button>
 
           <p className="text-center text-xs text-white/20 font-ui mt-2">
             No seed phrases. No downloads required for Cartridge.

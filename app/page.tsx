@@ -115,7 +115,7 @@ export default function LandingPage() {
               href="/quiz"
               className="min-touch flex items-center justify-center px-8 py-3 rounded-xl font-card font-medium text-white text-sm tracking-wide border border-white/20 hover:border-white/40 transition-all"
             >
-              I&apos;m New Here
+              I am new to web3
             </Link>
             <Link
               href="/leaderboard"
