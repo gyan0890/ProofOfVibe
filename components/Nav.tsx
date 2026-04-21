@@ -13,7 +13,7 @@ import { useMyCard } from "@/hooks/useMyCard";
 
 export function Nav() {
   const pathname = usePathname();
-  const { address, status } = useAccount();
+  const { address, status, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
@@ -212,7 +212,17 @@ export function Nav() {
                 </div>
                 <div className="border-t border-white/8 my-1" />
                 <button
-                  onClick={() => { clearLocalCard(); disconnect(); setShowMenu(false); router.push("/"); }}
+                  onClick={() => {
+                    // Revoke wallet permission so the next connect shows a fresh account picker
+                    if (typeof window !== "undefined" && connector) {
+                      const w = (window as any)[`starknet_${connector.id}`];
+                      if (w?.request) w.request({ type: "wallet_revokePermissions" }).catch(() => {});
+                    }
+                    clearLocalCard();
+                    disconnect();
+                    setShowMenu(false);
+                    router.push("/");
+                  }}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-card text-red-400/70 hover:text-red-400 hover:bg-red-500/5 transition-colors"
                 >
                   Disconnect
