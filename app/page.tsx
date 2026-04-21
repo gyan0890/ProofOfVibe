@@ -102,7 +102,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35, duration: 0.5 }}
-            className="flex flex-col sm:flex-row gap-3 mb-10"
+            className="flex flex-col sm:flex-row gap-3 mb-6"
           >
             <Link
               href="/onboard"
@@ -123,6 +123,21 @@ export default function LandingPage() {
               style={{ border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.07)" }}
             >
               ⚔️ Leaderboard
+            </Link>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.45, duration: 0.5 }}
+            className="mb-10"
+          >
+            <Link
+              href="/how-it-works"
+              className="inline-flex items-center gap-1.5 text-xs font-ui text-white/30 hover:text-white/60 transition-colors"
+            >
+              <span>📖</span>
+              How does this work?
+              <span className="text-white/20">→</span>
             </Link>
           </motion.div>
 
