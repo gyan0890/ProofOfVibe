@@ -157,6 +157,16 @@ export function useBattle() {
           console.warn("useBattle: could not parse battleId from receipt", parseErr);
         }
 
+        // Store challenger move+nonce server-side so the oracle can auto-resolve
+        // when the defender responds — no need for challenger to be online.
+        if (battleId > 0) {
+          fetch("/api/battle-attack", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ battleId, move, nonce }),
+          }).catch(() => {});
+        }
+
         return { txHash, battleId, move, nonce };
       } catch (e: any) {
         console.error("useBattle.initiateBattle error:", e);

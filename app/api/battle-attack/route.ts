@@ -6,26 +6,24 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
 
-// Key: battle-defense:{battleId}
-// Value: { move, nonce }  — expires after 24h (battle is resolved long before then)
 function key(battleId: number) {
-  return `battle-defense:${battleId}`;
+  return `battle-attack:${battleId}`;
 }
 
-/** GET /api/battle-defense?battleId=N */
+/** GET /api/battle-attack?battleId=N */
 export async function GET(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("battleId"));
   if (!id) return NextResponse.json({ error: "battleId required" }, { status: 400 });
   try {
     const data = await redis.get<{ move: number; nonce: string }>(key(id));
-    return NextResponse.json({ defense: data ?? null });
+    return NextResponse.json({ attack: data ?? null });
   } catch (e) {
-    console.error("battle-defense GET error:", e);
-    return NextResponse.json({ defense: null });
+    console.error("battle-attack GET error:", e);
+    return NextResponse.json({ attack: null });
   }
 }
 
-/** POST /api/battle-defense  body: { battleId, move, nonce } */
+/** POST /api/battle-attack  body: { battleId, move, nonce } */
 export async function POST(req: NextRequest) {
   try {
     const { battleId, move, nonce } = await req.json();
@@ -33,11 +31,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "battleId, move, nonce required" }, { status: 400 });
     }
     await redis.set(key(Number(battleId)), { move, nonce }, { ex: 86400 });
-    // Enqueue for oracle auto-resolve (score: current timestamp so it sorts by age)
-    await redis.zadd("battles:pending_resolve", { score: Date.now(), member: String(battleId) });
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error("battle-defense POST error:", e);
+    console.error("battle-attack POST error:", e);
     return NextResponse.json({ error: "internal error" }, { status: 500 });
   }
 }
