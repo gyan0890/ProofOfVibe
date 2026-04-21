@@ -99,7 +99,8 @@ export function useBattle() {
       challengerTokenId: number,
       defenderTokenId: number,
       move: number,
-      activityScore: number
+      activityScore: number,
+      onTxHash?: (txHash: string) => void
     ): Promise<{ txHash: string; battleId: number; move: number; nonce: string } | null> => {
       if (!address) {
         setError("Wallet not connected");

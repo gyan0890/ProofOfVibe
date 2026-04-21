@@ -66,42 +66,29 @@ export function BattleBanner() {
             </div>
           )}
 
-          {/* Challenger: defender committed, ready to resolve */}
+          {/* Challenger: defender committed — oracle will auto-resolve within 2 min */}
           {toResolve.length > 0 && (
             <div
               className="flex items-center gap-3 px-4 py-2 rounded-xl shadow-lg pointer-events-auto"
               style={{
-                background: "rgba(245,158,11,0.15)",
-                border: "1px solid rgba(245,158,11,0.4)",
+                background: "rgba(245,158,11,0.10)",
+                border: "1px solid rgba(245,158,11,0.3)",
                 backdropFilter: "blur(12px)",
               }}
             >
               <motion.span
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1.5 }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                style={{ display: "inline-block" }}
               >
-                ⚡
+                ⚙️
               </motion.span>
-              <span className="text-sm font-card text-white">
+              <span className="text-sm font-card text-white/80">
                 {toResolve.length === 1
-                  ? "Defender responded — resolve now!"
-                  : `${toResolve.length} battles ready to resolve!`}
+                  ? "Defender responded — resolving automatically…"
+                  : `${toResolve.length} battles resolving automatically…`}
               </span>
-              <div className="flex gap-2">
-                {toResolve.map((b) => (
-                  <Link
-                    key={b.battleId}
-                    href={`/battle/${b.defenderToken}`}
-                    className="px-3 py-1 rounded-lg text-xs font-card font-medium text-white transition-all hover:scale-105"
-                    style={{
-                      background: "rgba(245,158,11,0.5)",
-                      border: "1px solid rgba(245,158,11,0.6)",
-                    }}
-                  >
-                    Resolve #{b.battleId}
-                  </Link>
-                ))}
-              </div>
+              <span className="text-xs font-ui text-white/30">~2 min</span>
             </div>
           )}
         </motion.div>

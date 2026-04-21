@@ -114,6 +114,9 @@ export default function BattlePage({ params }: { params: { id: string } }) {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submittingTxHash, setSubmittingTxHash] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [xHandle, setXHandle] = useState(""); // defender handle
   const [myXHandle, setMyXHandle] = useState(""); // challenger handle
 
@@ -314,7 +317,9 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     if (submitting || challengerTokenId === null || defenderTokenId === null) return;
     setSubmitting(true);
     setSelectedMove(moveIndex);
+    setElapsed(0);
     setLocalError(null);
+    elapsedRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
 
     const activityScore = loadLocalCard()?.privacyProfile?.totalTransactions ?? 0;
 
@@ -322,12 +327,14 @@ export default function BattlePage({ params }: { params: { id: string } }) {
       challengerTokenId,
       defenderTokenId,
       moveIndex,
-      activityScore
+      activityScore,
+      (txHash) => setSubmittingTxHash(txHash)
     );
 
     if (!result) {
       setLocalError(battleError ?? "Transaction failed");
       setSubmitting(false);
+      if (elapsedRef.current) clearInterval(elapsedRef.current);
       return;
     }
 
@@ -335,6 +342,8 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     localStorage.setItem(`pendingBattle_${result.battleId}`, JSON.stringify(pending));
     setActiveBattle(pending);
     setTxHash(result.txHash);
+    if (elapsedRef.current) clearInterval(elapsedRef.current);
+    setSubmitting(false);
     setStep("waiting");
   }
 
@@ -490,30 +499,81 @@ export default function BattlePage({ params }: { params: { id: string } }) {
               </div>
 
               {!isSelf && challengerCard?.isAnchored && challengerTokenId !== null && (
+                <>
                 <div className="grid grid-cols-1 gap-4">
                   {MOVES.map((move, i) => (
                     <motion.button
                       key={i}
-                      whileHover={{ scale: 1.02, x: 4 }}
-                      whileTap={{ scale: 0.97 }}
+                      whileHover={submitting ? {} : { scale: 1.02, x: 4 }}
+                      whileTap={submitting ? {} : { scale: 0.97 }}
                       onClick={() => handleCommitMove(i)}
                       disabled={submitting || battleLoading}
                       className="min-touch p-5 rounded-2xl text-left flex items-center gap-4 disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                      style={{
+                        background: submitting && selectedMove === i
+                          ? "rgba(127,119,221,0.12)"
+                          : "rgba(255,255,255,0.04)",
+                        border: submitting && selectedMove === i
+                          ? "1px solid rgba(127,119,221,0.35)"
+                          : "1px solid rgba(255,255,255,0.08)",
+                      }}
                     >
                       <span
                         className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-card font-bold text-white/40 shrink-0"
                         style={{ background: "rgba(255,255,255,0.06)" }}
                       >
-                        {i + 1}
+                        {submitting && selectedMove === i ? (
+                          <motion.span
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            style={{ display: "block", width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(127,119,221,0.6)", borderTopColor: "rgba(127,119,221,1)" }}
+                          />
+                        ) : (i + 1)}
                       </span>
-                      <div>
+                      <div className="flex-1">
                         <p className="font-card text-white font-medium">{move.label}</p>
                         <p className="text-white/30 text-xs font-ui mt-0.5">{move.description}</p>
                       </div>
+                      {submitting && selectedMove === i && (
+                        <span className="text-[10px] font-ui text-violet-400 shrink-0">confirming…</span>
+                      )}
                     </motion.button>
                   ))}
                 </div>
+
+                {/* Transaction feedback banner */}
+                {submitting && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-2 px-4 py-3 rounded-xl flex items-start gap-3"
+                    style={{ background: "rgba(127,119,221,0.08)", border: "1px solid rgba(127,119,221,0.2)" }}
+                  >
+                    <motion.div
+                      className="w-4 h-4 rounded-full shrink-0 mt-0.5"
+                      style={{ border: "2px solid rgba(127,119,221,0.4)", borderTopColor: "rgba(127,119,221,1)" }}
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    />
+                    <div>
+                      <p className="text-sm font-card text-white/80">Attack submitted — waiting for Sepolia to confirm</p>
+                      <p className="text-xs font-ui text-white/30 mt-0.5">
+                          This takes ~30–60 seconds on Sepolia. Don&apos;t click again.
+                          <span className="ml-2 tabular-nums text-violet-400/60">{elapsed}s</span>
+                        </p>
+                      {submittingTxHash && (
+                        <a
+                          href={`https://sepolia.voyager.online/tx/${submittingTxHash}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-[10px] font-ui text-violet-400/70 hover:text-violet-400 transition-colors mt-1 inline-block"
+                        >
+                          View tx on Voyager ↗
+                        </a>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+                </>
               )}
             </motion.div>
           )}
