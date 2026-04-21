@@ -51,7 +51,7 @@ function CartridgeAutoReconnect({ cartridgeAvailable }: { cartridgeAvailable: bo
         try {
           probeResult = await ctrl.probe?.();
           console.log(`[CartridgeAutoReconnect] probe attempt ${i + 1}:`, probeResult);
-          if (probeResult && !Array.isArray(probeResult) && probeResult.username) break;
+          if (probeResult && !Array.isArray(probeResult) && (probeResult.username || probeResult.address)) break;
         } catch (e) {
           console.warn(`[CartridgeAutoReconnect] probe attempt ${i + 1} threw:`, e);
         }
@@ -59,12 +59,12 @@ function CartridgeAutoReconnect({ cartridgeAvailable }: { cartridgeAvailable: bo
         await delay(600);
       }
 
-      if (!probeResult?.username) {
+      if (!probeResult?.username && !probeResult?.address) {
         console.log("[CartridgeAutoReconnect] no active session — staying disconnected");
         return;
       }
 
-      console.log("[CartridgeAutoReconnect] session found for", probeResult.username, "— reconnecting silently");
+      console.log("[CartridgeAutoReconnect] session found for", probeResult.username ?? probeResult.address, "— reconnecting silently");
       connect({ connector: cartridge });
     })();
   }, [cartridgeAvailable, connectors, status, connect]);
