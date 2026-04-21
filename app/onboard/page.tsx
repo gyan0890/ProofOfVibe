@@ -54,7 +54,7 @@ export default function OnboardPage() {
               <span className="text-3xl mt-0.5">✨</span>
               <div className="flex-1">
                 <p className="font-card font-medium text-white mb-1">
-                  Reveal your Vibe
+                  How Anonymous Are You, Really?
                 </p>
                 <p className="text-white/40 text-sm font-ui">
                   Scan any EVM, Bitcoin, or Solana wallet to generate your privacy Vibe. Quiz available if you prefer.
