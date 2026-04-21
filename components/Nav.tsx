@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAccount, useDisconnect } from "@starknet-react/core";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { truncateAddress } from "@/lib/utils";
 import { clearLocalCard } from "@/lib/storage";
 import { usePendingChallenges } from "@/hooks/usePendingChallenges";
@@ -14,6 +15,7 @@ export function Nav() {
   const pathname = usePathname();
   const { address, status } = useAccount();
   const { disconnect } = useDisconnect();
+  const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [copied, setCopied] = useState(false);
   const [navHandle, setNavHandle] = useState("");
@@ -210,7 +212,7 @@ export function Nav() {
                 </div>
                 <div className="border-t border-white/8 my-1" />
                 <button
-                  onClick={() => { clearLocalCard(); disconnect(); setShowMenu(false); }}
+                  onClick={() => { clearLocalCard(); disconnect(); setShowMenu(false); router.push("/"); }}
                   className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-card text-red-400/70 hover:text-red-400 hover:bg-red-500/5 transition-colors"
                 >
                   Disconnect
