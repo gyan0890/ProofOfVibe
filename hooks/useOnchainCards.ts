@@ -87,52 +87,70 @@ export function useOnchainCards(limit = 50) {
           return;
         }
 
-        // Fetch all cards in parallel, batched
+        // Fetch cards in batches to avoid RPC rate limits, with per-call retry
+        const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+        const fetchWithRetry = async <T>(fn: () => Promise<T>, retries = 3, backoff = 400): Promise<T> => {
+          for (let i = 0; i < retries; i++) {
+            try { return await fn(); } catch (e: any) {
+              if (i === retries - 1) throw e;
+              await delay(backoff * (i + 1));
+            }
+          }
+          throw new Error("unreachable");
+        };
+
+        const BATCH_SIZE = 5;
         const ids = Array.from({ length: total }, (_, i) => i + 1);
-        const results = await Promise.allSettled(
-          ids.map(async (id) => {
-            const [raw, lossesRaw, winsRaw] = await Promise.all([
-              contract.get_card({ low: id, high: 0 }),
-              contract.get_battle_losses({ low: id, high: 0 }),
-              contract.get_battle_wins({ low: id, high: 0 }),
-            ]);
+        const allResults: PromiseSettledResult<CardData>[] = [];
+        for (let b = 0; b < ids.length; b += BATCH_SIZE) {
+          if (b > 0) await delay(200);
+          const batch = ids.slice(b, b + BATCH_SIZE);
+          const batchResults = await Promise.allSettled(
+            batch.map(async (id) => {
+              const [raw, lossesRaw, winsRaw] = await Promise.all([
+                fetchWithRetry(() => contract.get_card({ low: id, high: 0 }) as Promise<any>),
+                fetchWithRetry(() => contract.get_battle_losses({ low: id, high: 0 }) as Promise<any>),
+                fetchWithRetry(() => contract.get_battle_wins({ low: id, high: 0 }) as Promise<any>),
+              ]);
 
-            const owner: string = raw.owner?.toString() ?? "0x0";
-            const revealed = Number(raw.revealed_type);
-            const losses = Number(lossesRaw);
-            const wins = Number(winsRaw);
+              const owner: string = raw.owner?.toString() ?? "0x0";
+              const revealed = Number(raw.revealed_type);
+              const losses = Number(lossesRaw);
+              const wins = Number(winsRaw);
 
-            const personaName = (() => {
-              try {
-                return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0");
-              } catch {
-                return `Vibe #${id}`;
-              }
-            })();
+              const personaName = (() => {
+                try {
+                  return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0");
+                } catch {
+                  return `Vibe #${id}`;
+                }
+              })();
 
-            const card: CardData = {
-              id: `${owner}-${id}`,
-              owner,
-              commitment: raw.commitment?.toString() ?? "0x0",
-              revealedType: revealed !== 255 ? (revealed as VibeTypeIndex) : undefined,
-              paletteRevealed: Boolean(raw.palette_revealed),
-              mintTimestamp: Number(raw.mint_timestamp) * 1000,
-              personaName,
-              isAnchored: true,
-              battleRecord: { wins, losses, total: wins + losses },
-              traitReveal: {
-                barFillsAccurate: false,
+              const card: CardData = {
+                id: `${owner}-${id}`,
+                owner,
+                commitment: raw.commitment?.toString() ?? "0x0",
+                revealedType: revealed !== 255 ? (revealed as VibeTypeIndex) : undefined,
                 paletteRevealed: Boolean(raw.palette_revealed),
-                typeRevealed: revealed !== 255,
-                lossCount: losses,
-              },
-              recentBattles: [],
-            };
-            return card;
-          })
-        );
+                mintTimestamp: Number(raw.mint_timestamp) * 1000,
+                personaName,
+                isAnchored: true,
+                battleRecord: { wins, losses, total: wins + losses },
+                traitReveal: {
+                  barFillsAccurate: false,
+                  paletteRevealed: Boolean(raw.palette_revealed),
+                  typeRevealed: revealed !== 255,
+                  lossCount: losses,
+                },
+                recentBattles: [],
+              };
+              return card;
+            })
+          );
+          allResults.push(...batchResults);
+        }
 
-        const fetched = results
+        const fetched = allResults
           .filter((r): r is PromiseFulfilledResult<CardData> => r.status === "fulfilled")
           .map((r) => r.value);
 
