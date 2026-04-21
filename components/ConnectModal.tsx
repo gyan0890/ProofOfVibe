@@ -77,11 +77,8 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
     }
   }
 
-  // Order: Cartridge first, then others
-  const ordered = [
-    ...connectors.filter((c) => c.id === "controller"),
-    ...connectors.filter((c) => c.id !== "controller"),
-  ];
+  // Only show Cartridge Controller for now
+  const ordered = connectors.filter((c) => c.id === "controller");
 
   return (
     <AnimatePresence>
