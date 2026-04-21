@@ -102,7 +102,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35, duration: 0.5 }}
-            className="flex flex-col sm:flex-row gap-3 mb-6"
+            className="flex flex-col sm:flex-row gap-3 mb-10"
           >
             <Link
               href="/onboard"
@@ -125,21 +125,7 @@ export default function LandingPage() {
               ⚔️ Leaderboard
             </Link>
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.45, duration: 0.5 }}
-            className="mb-10"
-          >
-            <Link
-              href="/how-it-works"
-              className="inline-flex items-center gap-1.5 text-xs font-ui text-white/30 hover:text-white/60 transition-colors"
-            >
-              <span>📖</span>
-              How does this work?
-              <span className="text-white/20">→</span>
-            </Link>
-          </motion.div>
+
 
           <motion.div
             initial={{ opacity: 0 }}
@@ -201,10 +187,7 @@ export default function LandingPage() {
           transition={{ delay: 0.3 }}
           className="text-center mt-12 flex flex-wrap justify-center gap-6"
         >
-          <Link href="/how-it-works" className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors font-ui">
-            How it works →
-          </Link>
-          <Link href="/demo" className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors font-ui">
+<Link href="/demo" className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors font-ui">
             <span className="w-1 h-1 rounded-full bg-green-500" />
             Try the demo →
           </Link>
