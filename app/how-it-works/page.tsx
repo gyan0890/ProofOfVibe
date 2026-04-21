@@ -300,7 +300,7 @@ export default function HowItWorksPage() {
             className="min-touch flex items-center justify-center px-8 py-3 rounded-xl font-card font-medium text-[#080810] text-sm tracking-wide transition-all hover:scale-105"
             style={{ background: "linear-gradient(135deg, #a78bfa, #7F77DD)" }}
           >
-            Find Out Now →
+            I have a web3 wallet
           </Link>
           <Link
             href="/leaderboard"
