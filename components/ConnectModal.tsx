@@ -17,7 +17,7 @@ const CONNECTOR_META: Record<string, {
   installUrl?: string;
   installLabel?: string;
 }> = {
-  cartridge: {
+  controller: {
     icon: "🎮",
     label: "Cartridge Controller",
     sublabel: "No wallet needed · Passkey login",
@@ -51,7 +51,7 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
     if (!connector) return;
 
     // Check if the extension wallet is actually installed
-    if (connectorId !== "cartridge" && !connector.available()) {
+    if (connectorId !== "controller" && !connector.available()) {
       setNotInstalled(connectorId);
       return;
     }
@@ -75,8 +75,8 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
 
   // Order: Cartridge first, then others
   const ordered = [
-    ...connectors.filter((c) => c.id === "cartridge"),
-    ...connectors.filter((c) => c.id !== "cartridge"),
+    ...connectors.filter((c) => c.id === "controller"),
+    ...connectors.filter((c) => c.id !== "controller"),
   ];
 
   return (
@@ -122,7 +122,7 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
                     sublabel: "Starknet wallet",
                   };
                   const isLoading = connecting === connector.id;
-                  const isUnavailable = connector.id !== "cartridge" && !connector.available();
+                  const isUnavailable = connector.id !== "controller" && !connector.available();
                   const isShowingInstall = notInstalled === connector.id;
 
                   return (
@@ -206,7 +206,7 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
                               style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)" }}
                             >
                               <p className="text-xs font-ui text-amber-300/80">
-                                {meta.label} isn't installed in this browser.
+                                {meta.label} isn&apos;t installed in this browser.
                               </p>
                               <a
                                 href={meta.installUrl}

@@ -62,6 +62,11 @@ const VIBECARD_READ_ABI = [
 ] as const;
 
 function parseTokenId(id: string): number | null {
+  if (id.startsWith("session-")) return null;
+  // Handle plain numeric IDs like "1", "2", "3"
+  const asNum = Number(id);
+  if (Number.isInteger(asNum) && asNum > 0 && asNum < 1_000_000) return asNum;
+  // Handle "${address}-${tokenId}" format
   const parts = id.split("-");
   const last = Number(parts[parts.length - 1]);
   if (Number.isInteger(last) && last > 0 && last < 1_000_000) return last;
@@ -96,9 +101,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
   const { initiateBattle, resolveBattle, claimExpiredBattle, getBattle, loading: battleLoading, error: battleError } = useBattle();
 
   // useMyCard gives us the canonical version with a resolved tokenId.
-  // The battle page reads localStorage once on mount, but if the local card
-  // still has a stale scan-timestamp ID this hook will fix it asynchronously.
-  const { card: myCard } = useMyCard();
+  const { card: myCard, loading: myCardLoading } = useMyCard();
 
   const [challengerCard, setChallengerCard] = useState<CardData | null>(null);
   const [challengerTokenId, setChallengerTokenId] = useState<number | null>(null);
@@ -216,11 +219,9 @@ export default function BattlePage({ params }: { params: { id: string } }) {
   }, [params.id, provider]);
 
   // On mount: recover any pending battle for this defender token from localStorage
-  // Handles page refresh while waiting for defender, or returning via Nav "resolve" link
   useEffect(() => {
     if (!provider || defenderTokenId === null) return;
 
-    // Find a pendingBattle_* entry that matches this defender
     const keys = Object.keys(localStorage).filter((k) => k.startsWith("pendingBattle_"));
     if (keys.length === 0) return;
 
@@ -232,19 +233,15 @@ export default function BattlePage({ params }: { params: { id: string } }) {
 
         const battle = await getBattle(pending.battleId).catch(() => null);
         if (!battle) continue;
-        // Only recover if this battle involves our defender token
         if (battle.defenderToken !== defenderTokenId) continue;
 
         setActiveBattle(pending);
         setOnchainBattle(battle);
 
         if (battle.status === 0) {
-          // Still waiting for defender — resume polling
           setStep("waiting");
         } else if (battle.status === 1) {
-          // Defender already committed — auto-resolve immediately
-          setStep("waiting"); // show spinner while resolving
-          // Fetch defender's committed move from server
+          setStep("waiting");
           let defenderMove = 0;
           let defenderNonce = "0x1";
           try {
@@ -264,10 +261,9 @@ export default function BattlePage({ params }: { params: { id: string } }) {
           setStep("resolved");
           window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
         } else if (battle.status === 2) {
-          // Already resolved — show result
           setStep("resolved");
         }
-        break; // only recover the first matching battle
+        break;
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,11 +278,9 @@ export default function BattlePage({ params }: { params: { id: string } }) {
       setOnchainBattle(battle);
       if (battle.status === 1) {
         clearInterval(pollRef.current!);
-        // Auto-resolve — read pending from localStorage in case state is stale
         const saved = localStorage.getItem(`pendingBattle_${activeBattle.battleId}`);
         let pending = activeBattle;
         if (saved) { try { pending = JSON.parse(saved) as PendingBattle; } catch { /* ignore */ } }
-        // Fetch defender's committed move from server
         let defenderMove = 0;
         let defenderNonce = "0x1";
         try {
@@ -409,6 +403,9 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     challengerTokenId !== null &&
     onchainBattle.winner === challengerTokenId;
 
+  // True while useMyCard is fetching from chain for a connected wallet
+  const loadingMyCard = !!address && myCardLoading && !challengerCard?.isAnchored;
+
   if (defenderLoading) {
     return (
       <div className="min-h-screen bg-[#080810] flex items-center justify-center">
@@ -423,6 +420,46 @@ export default function BattlePage({ params }: { params: { id: string } }) {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#080810" }}>
+      {/* Fixed attack feedback toast — visible above all content */}
+      <AnimatePresence>
+        {submitting && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-16 left-1/2 z-50 -translate-x-1/2 w-full max-w-sm px-4"
+          >
+            <div
+              className="px-4 py-3 rounded-xl flex items-start gap-3 shadow-xl"
+              style={{ background: "rgba(13,13,26,0.97)", border: "1px solid rgba(127,119,221,0.4)" }}
+            >
+              <motion.div
+                className="w-4 h-4 rounded-full shrink-0 mt-0.5"
+                style={{ border: "2px solid rgba(127,119,221,0.4)", borderTopColor: "rgba(127,119,221,1)" }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              />
+              <div>
+                <p className="text-sm font-card text-white/90">Attack submitted — waiting for Sepolia to confirm</p>
+                <p className="text-xs font-ui text-white/40 mt-0.5">
+                  ~30–60 seconds on Sepolia. Don&apos;t click again.
+                  <span className="ml-2 tabular-nums text-violet-400/70">{elapsed}s</span>
+                </p>
+                {submittingTxHash && (
+                  <a
+                    href={`https://sepolia.voyager.online/tx/${submittingTxHash}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-[10px] font-ui text-violet-400/70 hover:text-violet-400 transition-colors mt-1 inline-block"
+                  >
+                    View tx on Voyager ↗
+                  </a>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-3xl mx-auto w-full px-6 py-12">
         <Link
           href={`/card/${params.id}`}
@@ -445,13 +482,30 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                 </div>
               )}
 
-              {(!challengerCard || !challengerCard.isAnchored) && (
+              {/* Loading state while useMyCard fetches from chain */}
+              {loadingMyCard && (
+                <div
+                  className="mb-6 px-4 py-3 rounded-xl flex items-center gap-3 text-sm font-ui"
+                  style={{ background: "rgba(127,119,221,0.06)", border: "1px solid rgba(127,119,221,0.2)", color: "rgba(255,255,255,0.5)" }}
+                >
+                  <motion.div
+                    className="w-3.5 h-3.5 rounded-full shrink-0"
+                    style={{ border: "2px solid rgba(127,119,221,0.3)", borderTopColor: "rgba(127,119,221,0.8)" }}
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                  Loading your card from chain…
+                </div>
+              )}
+
+              {/* No card — only show if not currently loading */}
+              {!loadingMyCard && (!challengerCard || !challengerCard.isAnchored) && (
                 <div className="mb-6 text-white/60 font-ui text-sm">
                   You need a minted card to battle.{" "}
                   <Link href="/reveal" className="text-violet-400 hover:underline">Mint yours</Link>
                 </div>
               )}
-              {challengerCard?.isAnchored && challengerTokenId === null && (
+              {!loadingMyCard && challengerCard?.isAnchored && challengerTokenId === null && (
                 <div className="mb-6 text-white/60 font-ui text-sm">
                   Resolving your card ID…{" "}
                   <Link href="/reveal" className="text-violet-400 hover:underline">
@@ -477,7 +531,14 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                       className="w-[200px] h-[300px] rounded-[20px] flex items-center justify-center text-white/20 text-xs font-ui"
                       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
                     >
-                      No card
+                      {loadingMyCard ? (
+                        <motion.div
+                          className="w-5 h-5 rounded-full"
+                          style={{ border: "2px solid rgba(127,119,221,0.3)", borderTopColor: "rgba(127,119,221,0.8)" }}
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        />
+                      ) : "No card"}
                     </div>
                   )}
                   <span className="text-xs text-white/40 font-ui">You</span>
@@ -499,7 +560,6 @@ export default function BattlePage({ params }: { params: { id: string } }) {
               </div>
 
               {!isSelf && challengerCard?.isAnchored && challengerTokenId !== null && (
-                <>
                 <div className="grid grid-cols-1 gap-4">
                   {MOVES.map((move, i) => (
                     <motion.button
@@ -540,40 +600,17 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                     </motion.button>
                   ))}
                 </div>
+              )}
 
-                {/* Transaction feedback banner */}
-                {submitting && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 px-4 py-3 rounded-xl flex items-start gap-3"
-                    style={{ background: "rgba(127,119,221,0.08)", border: "1px solid rgba(127,119,221,0.2)" }}
-                  >
-                    <motion.div
-                      className="w-4 h-4 rounded-full shrink-0 mt-0.5"
-                      style={{ border: "2px solid rgba(127,119,221,0.4)", borderTopColor: "rgba(127,119,221,1)" }}
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    />
-                    <div>
-                      <p className="text-sm font-card text-white/80">Attack submitted — waiting for Sepolia to confirm</p>
-                      <p className="text-xs font-ui text-white/30 mt-0.5">
-                          This takes ~30–60 seconds on Sepolia. Don&apos;t click again.
-                          <span className="ml-2 tabular-nums text-violet-400/60">{elapsed}s</span>
-                        </p>
-                      {submittingTxHash && (
-                        <a
-                          href={`https://sepolia.voyager.online/tx/${submittingTxHash}`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="text-[10px] font-ui text-violet-400/70 hover:text-violet-400 transition-colors mt-1 inline-block"
-                        >
-                          View tx on Voyager ↗
-                        </a>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-                </>
+              {displayError && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-4 px-4 py-3 rounded-xl text-sm font-ui"
+                  style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+                >
+                  {displayError}
+                </motion.div>
               )}
             </motion.div>
           )}
@@ -623,7 +660,6 @@ export default function BattlePage({ params }: { params: { id: string } }) {
                     value={myXHandle}
                     onChange={(e) => {
                       setMyXHandle(e.target.value);
-                      // Persist for next time
                       const local = loadLocalCard();
                       if (local?.owner) {
                         fetch("/api/x-handle", {
