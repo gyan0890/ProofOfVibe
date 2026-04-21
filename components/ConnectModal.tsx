@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useConnect } from "@starknet-react/core";
+import { useConnect, useDisconnect, useAccount } from "@starknet-react/core";
 import { useState } from "react";
 
 interface ConnectModalProps {
@@ -22,7 +22,6 @@ const CONNECTOR_META: Record<string, {
     label: "Cartridge Controller",
     sublabel: "No wallet needed · Passkey login",
     featured: true,
-    // Cartridge is always available (no extension needed)
   },
   argentX: {
     icon: "🟠",
@@ -42,6 +41,8 @@ const CONNECTOR_META: Record<string, {
 
 export function ConnectModal({ open, onClose }: ConnectModalProps) {
   const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { status } = useAccount();
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notInstalled, setNotInstalled] = useState<string | null>(null);
@@ -60,6 +61,11 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
     setConnecting(connectorId);
     setError(null);
     try {
+      // Disconnect any existing session first so the wallet opens fresh
+      // and doesn't silently reuse the previously connected account.
+      if (status === "connected") {
+        await disconnect();
+      }
       await connect({ connector });
       onClose();
     } catch (e: any) {

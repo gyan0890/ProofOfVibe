@@ -180,13 +180,8 @@ export default function RevealPage() {
   } = usePrivacyScore();
   const [showingScan, setShowingScan] = useState(false);
   const [noActivityFound, setNoActivityFound] = useState(false);
-  // The address to scan — defaults to connected wallet, but user can type any address
+  // The address to scan — EVM/Bitcoin/Solana only; never pre-fill Starknet address
   const [scanInputAddress, setScanInputAddress] = useState("");
-
-  // Sync input with connected wallet whenever wallet changes
-  useEffect(() => {
-    if (address && !scanInputAddress) setScanInputAddress(address);
-  }, [address]);
 
   function startAnimation() {
     if (animationStarted.current) return;
@@ -401,7 +396,6 @@ export default function RevealPage() {
     if (!address || !card || card.isAnchored || onchainCard) return;
     updateLocalCard({ owner: address });
     setCard((c) => (c ? { ...c, owner: address } : c));
-    if (!scanInputAddress) setScanInputAddress(address);
   }, [address]);
 
   // ── Mint handler ─────────────────────────────────────────────────────────
