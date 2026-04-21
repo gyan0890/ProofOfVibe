@@ -61,12 +61,6 @@ export function ConnectModal({ open, onClose }: ConnectModalProps) {
     setConnecting(connectorId);
     setError(null);
     try {
-      // Revoke wallet permissions so the next connect shows a fresh account picker.
-      // This tells the wallet extension to forget the existing session.
-      if (connectorId !== "controller" && typeof window !== "undefined") {
-        const w = (window as any)[`starknet_${connectorId}`];
-        if (w?.request) await w.request({ type: "wallet_revokePermissions" }).catch(() => {});
-      }
       if (status === "connected") {
         await disconnect();
       }
