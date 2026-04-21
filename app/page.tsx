@@ -109,7 +109,7 @@ export default function LandingPage() {
               className="min-touch flex items-center justify-center px-8 py-3 rounded-xl font-card font-medium text-[#080810] text-sm tracking-wide transition-all hover:scale-105 active:scale-95"
               style={{ background: "linear-gradient(135deg, #a78bfa, #7F77DD)" }}
             >
-              Reveal My Vibe
+              Find Out Now →
             </Link>
             <Link
               href="/quiz"
