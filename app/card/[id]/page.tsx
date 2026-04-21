@@ -61,13 +61,16 @@ const VIBECARD_READ_ABI = [
   },
 ] as const;
 
-/** Extract a token ID from card IDs of form "${address}-${tokenId}" */
+/** Extract a token ID from card IDs of form "${address}-${tokenId}" or plain "N" */
 function parseTokenId(id: string): number | null {
   if (id.startsWith("session-")) return null;
+  // Handle plain numeric IDs like "1", "2", "3"
+  const asNum = Number(id);
+  if (Number.isInteger(asNum) && asNum > 0 && asNum < 1_000_000) return asNum;
+  // Handle "${address}-${tokenId}" format
   const parts = id.split("-");
   if (parts.length < 2) return null;
   const last = Number(parts[parts.length - 1]);
-  // Valid onchain token IDs are small positive integers
   if (Number.isInteger(last) && last > 0 && last < 1_000_000) return last;
   return null;
 }
