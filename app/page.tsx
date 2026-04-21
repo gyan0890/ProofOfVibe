@@ -186,6 +186,9 @@ export default function LandingPage() {
           transition={{ delay: 0.3 }}
           className="text-center mt-12 flex flex-wrap justify-center gap-6"
         >
+          <Link href="/how-it-works" className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors font-ui">
+            How it works →
+          </Link>
           <Link href="/demo" className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors font-ui">
             <span className="w-1 h-1 rounded-full bg-green-500" />
             Try the demo →

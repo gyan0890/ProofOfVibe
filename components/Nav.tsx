@@ -40,6 +40,7 @@ export function Nav() {
   const links = [
     { href: "/leaderboard", label: "⚔️ Battle" },
     { href: "/season", label: "Season" },
+    { href: "/how-it-works", label: "Guide" },
   ];
 
   return (
