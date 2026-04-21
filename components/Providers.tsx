@@ -122,7 +122,7 @@ export function Providers({ children }: { children: ReactNode }) {
       chains={[sepolia]}
       provider={provider}
       connectors={connectors}
-      autoConnect
+      autoConnect={false}
     >
       <ConnectorPersist />
       <CartridgeAutoReconnect cartridgeAvailable={!!ControllerConnector} />
