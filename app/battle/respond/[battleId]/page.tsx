@@ -60,6 +60,8 @@ export default function RespondPage({ params }: { params: { battleId: string } }
   const [selectedMove, setSelectedMove] = useState<number | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [challengerXHandle, setChallengerXHandle] = useState<string | null>(null);
+  const [myXHandle, setMyXHandle] = useState<string | null>(null);
 
   useEffect(() => {
     if (!provider || isNaN(battleId)) return;
@@ -133,6 +135,17 @@ export default function RespondPage({ params }: { params: { battleId: string } }
         } else {
           setDefenderCard(dCard);
         }
+        // Fetch challenger's X handle (to tag them in the defender's tweet)
+        try {
+          const res = await fetch(`/api/x-handle?address=${encodeURIComponent(num.toHex(cCard.owner))}`);
+          const { handle } = await res.json();
+          if (handle) setChallengerXHandle(handle);
+        } catch {}
+
+        // Pre-fill defender's own handle from localStorage
+        const localCard = loadLocalCard();
+        if (localCard?.xHandle) setMyXHandle(localCard.xHandle);
+
         setStep("pick");
       } catch (e: any) {
         console.error("RespondPage load error:", e);
@@ -318,7 +331,12 @@ export default function RespondPage({ params }: { params: { battleId: string } }
               {/* Post to X */}
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                  `I just defended my Vibe onchain in Proof of Vibe! 🛡️\n\nBattle #${battleId}${defenderCard?.personaName ? ` — ${defenderCard.personaName}` : ""} held the line. Identity still sealed.\n\nChallenge me → https://proof-of-vibe-kohl.vercel.app #ProofOfVibe #Starknet`
+                  [
+                    myXHandle ? `@${myXHandle}` : "I",
+                    "just defended against",
+                    challengerXHandle ? `@${challengerXHandle}` : (challengerCard?.personaName ?? "a challenger"),
+                    `in Proof of Vibe! 🛡️\n\nBattle #${battleId} — identity still sealed.\n\nThink you can crack it? → https://proof-of-vibe-kohl.vercel.app #ProofOfVibe #Starknet`,
+                  ].join(" ")
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
