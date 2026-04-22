@@ -36,13 +36,13 @@ const STOP_AFTER_CONSECUTIVE_ZEROS = 3;
 // Minimum ms between focus-triggered refreshes
 const FOCUS_COOLDOWN_MS = 60_000;
 
-const MAX_ID_KEY = "pov:maxBattleId";
+const maxIdKey = (tokenId: number) => `pov:maxBattleId:${tokenId}`;
 
-function getStoredMaxId(): number {
-  try { return parseInt(localStorage.getItem(MAX_ID_KEY) ?? "0") || 0; } catch { return 0; }
+function getStoredMaxId(tokenId: number): number {
+  try { return parseInt(localStorage.getItem(maxIdKey(tokenId)) ?? "0") || 0; } catch { return 0; }
 }
-function setStoredMaxId(id: number) {
-  try { if (id > 0) localStorage.setItem(MAX_ID_KEY, String(id)); } catch {}
+function setStoredMaxId(tokenId: number, id: number) {
+  try { if (id > 0) localStorage.setItem(maxIdKey(tokenId), String(id)); } catch {}
 }
 
 export interface PendingChallenge {
@@ -74,7 +74,7 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
         providerOrAccount: provider,
       });
 
-      const storedMax = getStoredMaxId();
+      const storedMax = getStoredMaxId(myTokenId);
       // Start just behind the last known ID so we don't miss edge cases
       const startId = Math.max(1, storedMax - 2);
       const ceiling = storedMax + LOOK_AHEAD;
@@ -115,7 +115,7 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
         }
       }
 
-      setStoredMaxId(newMax);
+      setStoredMaxId(myTokenId, newMax);
       setChallenges(pendingDefender);
       setToResolve(pendingChallenger);
       lastRefreshAt.current = Date.now();
