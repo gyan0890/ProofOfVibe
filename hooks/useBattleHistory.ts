@@ -56,12 +56,37 @@ export interface BattleHistoryEntry {
   opponentToken: number;
   opponentName: string;
   status: 0 | 1 | 2;
-  won: boolean | null; // null if unresolved
-  initiatedAt: number; // ms
+  won: boolean | null;
+  initiatedAt: number;
 }
 
-const MAX_PROBE = 200;
+const LOOK_AHEAD = 20;
 const STOP_AFTER = 3;
+// Cache TTL: 5 minutes
+const CACHE_TTL_MS = 5 * 60_000;
+
+const cacheKey = (id: number) => `pov:battleHistory:${id}`;
+const maxScannedKey = (id: number) => `pov:battleHistory:maxScanned:${id}`;
+
+function loadCache(tokenId: number): { entries: BattleHistoryEntry[]; ts: number } {
+  try {
+    const raw = localStorage.getItem(cacheKey(tokenId));
+    if (!raw) return { entries: [], ts: 0 };
+    return JSON.parse(raw);
+  } catch { return { entries: [], ts: 0 }; }
+}
+
+function saveCache(tokenId: number, entries: BattleHistoryEntry[]) {
+  try { localStorage.setItem(cacheKey(tokenId), JSON.stringify({ entries, ts: Date.now() })); } catch {}
+}
+
+function getMaxScanned(tokenId: number): number {
+  try { return parseInt(localStorage.getItem(maxScannedKey(tokenId)) ?? "0") || 0; } catch { return 0; }
+}
+
+function setMaxScanned(tokenId: number, id: number) {
+  try { if (id > 0) localStorage.setItem(maxScannedKey(tokenId), String(id)); } catch {}
+}
 
 export function useBattleHistory(myTokenId: number | null | undefined) {
   const { provider } = useProvider();
@@ -71,6 +96,17 @@ export function useBattleHistory(myTokenId: number | null | undefined) {
   const load = useCallback(async () => {
     if (!myTokenId || !provider) return;
     setLoading(true);
+
+    // Show cached data immediately while we fetch new
+    const { entries: cached, ts } = loadCache(myTokenId);
+    if (cached.length > 0) setHistory(cached);
+
+    // Skip full refresh if cache is fresh
+    if (Date.now() - ts < CACHE_TTL_MS && cached.length > 0) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const contract = new Contract({
         abi: BATTLE_ABI as any,
@@ -78,10 +114,15 @@ export function useBattleHistory(myTokenId: number | null | undefined) {
         providerOrAccount: provider,
       });
 
-      const entries: BattleHistoryEntry[] = [];
-      let zeros = 0;
+      const maxScanned = getMaxScanned(myTokenId);
+      const startId = Math.max(1, maxScanned - 2);
+      const ceiling = maxScanned + LOOK_AHEAD;
 
-      for (let id = 1; id <= MAX_PROBE; id++) {
+      const newEntries: BattleHistoryEntry[] = [];
+      let zeros = 0;
+      let newMax = maxScanned;
+
+      for (let id = startId; id <= ceiling; id++) {
         let b: any;
         try { b = await contract.get_battle({ low: id, high: 0 }); }
         catch { zeros++; if (zeros >= STOP_AFTER) break; continue; }
@@ -89,6 +130,7 @@ export function useBattleHistory(myTokenId: number | null | undefined) {
         const initiatedAt = Number(b.initiated_at);
         if (initiatedAt === 0) { zeros++; if (zeros >= STOP_AFTER) break; continue; }
         zeros = 0;
+        if (id > newMax) newMax = id;
 
         const challengerToken = Number(b.challenger_token);
         const defenderToken = Number(b.defender_token);
@@ -100,24 +142,41 @@ export function useBattleHistory(myTokenId: number | null | undefined) {
         const winner = Number(b.winner);
         const opponentToken = isChallenger ? defenderToken : challengerToken;
 
-        let opponentName = "Card #" + opponentToken;
-        try {
-          const card = await contract.get_card({ low: opponentToken, high: 0 });
-          opponentName = shortString.decodeShortString(card.persona_name?.toString() ?? "0x0");
-        } catch {}
-
-        entries.push({
+        newEntries.push({
           battleId: id,
           role: isChallenger ? "challenger" : "defender",
           opponentToken,
-          opponentName,
+          opponentName: "Card #" + opponentToken, // resolved below
           status,
           won: status === 2 ? winner === myTokenId : null,
           initiatedAt: initiatedAt * 1000,
         });
       }
 
-      setHistory(entries.sort((a, b) => b.initiatedAt - a.initiatedAt));
+      setMaxScanned(myTokenId, newMax);
+
+      // Batch-resolve opponent names in parallel (max 5 at a time)
+      const BATCH = 5;
+      for (let i = 0; i < newEntries.length; i += BATCH) {
+        const slice = newEntries.slice(i, i + BATCH);
+        await Promise.allSettled(
+          slice.map(async (entry) => {
+            try {
+              const card = await contract.get_card({ low: entry.opponentToken, high: 0 });
+              entry.opponentName = shortString.decodeShortString(card.persona_name?.toString() ?? "0x0");
+            } catch {}
+          })
+        );
+      }
+
+      // Merge: new entries override stale cached ones for the same battle ID
+      const mergedMap = new Map<number, BattleHistoryEntry>();
+      for (const e of cached) mergedMap.set(e.battleId, e);
+      for (const e of newEntries) mergedMap.set(e.battleId, e);
+      const merged = Array.from(mergedMap.values()).sort((a, b) => b.initiatedAt - a.initiatedAt);
+
+      saveCache(myTokenId, merged);
+      setHistory(merged);
     } catch (e) {
       console.error("useBattleHistory error:", e);
     } finally {

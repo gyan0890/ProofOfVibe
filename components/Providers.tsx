@@ -1,8 +1,9 @@
 "use client";
 
-import { StarknetConfig, jsonRpcProvider, argent, braavos, useConnect, useAccount } from "@starknet-react/core";
+import { StarknetConfig, argent, braavos, useConnect, useAccount } from "@starknet-react/core";
 import { sepolia } from "@starknet-react/chains";
 import { ReactNode, useMemo, useState, useEffect } from "react";
+import { createFallbackProvider, getRpcUrls } from "@/lib/fallbackProvider";
 
 /** Persists which connector was last used so CartridgeAutoReconnect can restore it on refresh. */
 function ConnectorPersist() {
@@ -109,13 +110,7 @@ export function Providers({ children }: { children: ReactNode }) {
     return [cartridge, argent(), braavos()];
   }, [ControllerConnector]);
 
-  const provider = jsonRpcProvider({
-    rpc: () => ({
-      nodeUrl:
-        process.env.NEXT_PUBLIC_STARKNET_RPC_URL ??
-        "https://api.cartridge.gg/x/starknet/sepolia",
-    }),
-  });
+  const provider = () => createFallbackProvider(getRpcUrls());
 
   return (
     <StarknetConfig

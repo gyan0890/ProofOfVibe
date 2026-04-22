@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useProvider } from "@starknet-react/core";
 import { Contract } from "starknet";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
@@ -30,21 +30,31 @@ const BATTLE_ABI = [
   },
 ] as const;
 
-const MAX_BATTLE_PROBE = 200;
+// Scan this many IDs ahead of the highest known battle
+const LOOK_AHEAD = 20;
 const STOP_AFTER_CONSECUTIVE_ZEROS = 3;
+// Minimum ms between focus-triggered refreshes
+const FOCUS_COOLDOWN_MS = 60_000;
 
-/** Battle where I am the defender and need to respond (status=0) */
+const MAX_ID_KEY = "pov:maxBattleId";
+
+function getStoredMaxId(): number {
+  try { return parseInt(localStorage.getItem(MAX_ID_KEY) ?? "0") || 0; } catch { return 0; }
+}
+function setStoredMaxId(id: number) {
+  try { if (id > 0) localStorage.setItem(MAX_ID_KEY, String(id)); } catch {}
+}
+
 export interface PendingChallenge {
   battleId: number;
   challengerToken: number;
-  initiatedAt: number; // ms
+  initiatedAt: number;
 }
 
-/** Battle where I am the challenger and need to resolve (status=1) */
 export interface BattleToResolve {
   battleId: number;
   defenderToken: number;
-  initiatedAt: number; // ms
+  initiatedAt: number;
 }
 
 export function usePendingChallenges(myTokenId: number | null | undefined) {
@@ -52,6 +62,7 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
   const [challenges, setChallenges] = useState<PendingChallenge[]>([]);
   const [toResolve, setToResolve] = useState<BattleToResolve[]>([]);
   const [loading, setLoading] = useState(false);
+  const lastRefreshAt = useRef<number>(0);
 
   const refresh = useCallback(async () => {
     if (!myTokenId || !provider) return;
@@ -63,11 +74,17 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
         providerOrAccount: provider,
       });
 
+      const storedMax = getStoredMaxId();
+      // Start just behind the last known ID so we don't miss edge cases
+      const startId = Math.max(1, storedMax - 2);
+      const ceiling = storedMax + LOOK_AHEAD;
+
       const pendingDefender: PendingChallenge[] = [];
       const pendingChallenger: BattleToResolve[] = [];
       let consecutiveZeros = 0;
+      let newMax = storedMax;
 
-      for (let id = 1; id <= MAX_BATTLE_PROBE; id++) {
+      for (let id = startId; id <= ceiling; id++) {
         let b: any;
         try {
           b = await contract.get_battle({ low: id, high: 0 });
@@ -84,32 +101,24 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
           continue;
         }
         consecutiveZeros = 0;
+        if (id > newMax) newMax = id;
 
         const status = Number(b.status);
         const challengerToken = Number(b.challenger_token);
         const defenderToken = Number(b.defender_token);
 
-        // I'm the defender and battle is waiting for my response
         if (status === 0 && defenderToken === myTokenId) {
-          pendingDefender.push({
-            battleId: id,
-            challengerToken,
-            initiatedAt: initiatedAt * 1000,
-          });
+          pendingDefender.push({ battleId: id, challengerToken, initiatedAt: initiatedAt * 1000 });
         }
-
-        // I'm the challenger and the defender has committed — ready to resolve
         if (status === 1 && challengerToken === myTokenId) {
-          pendingChallenger.push({
-            battleId: id,
-            defenderToken,
-            initiatedAt: initiatedAt * 1000,
-          });
+          pendingChallenger.push({ battleId: id, defenderToken, initiatedAt: initiatedAt * 1000 });
         }
       }
 
+      setStoredMaxId(newMax);
       setChallenges(pendingDefender);
       setToResolve(pendingChallenger);
+      lastRefreshAt.current = Date.now();
     } catch (e) {
       console.error("usePendingChallenges error:", e);
     } finally {
@@ -117,13 +126,12 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
     }
   }, [myTokenId, provider]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh]);
 
-  // Re-fetch when tab regains focus or a battle action fires a custom event
   useEffect(() => {
-    const onFocus = () => refresh();
+    const onFocus = () => {
+      if (Date.now() - lastRefreshAt.current > FOCUS_COOLDOWN_MS) refresh();
+    };
     const onBattleUpdate = () => refresh();
     window.addEventListener("focus", onFocus);
     window.addEventListener("proofofvibe:battleUpdated", onBattleUpdate);
