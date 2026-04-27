@@ -88,7 +88,7 @@ export function BattleBanner() {
                   ? "Defender responded — resolving automatically…"
                   : `${toResolve.length} battles resolving automatically…`}
               </span>
-              <span className="text-xs font-ui text-white/30">~2 min</span>
+              <span className="text-xs font-ui text-white/30">~5 min</span>
             </div>
           )}
         </motion.div>
