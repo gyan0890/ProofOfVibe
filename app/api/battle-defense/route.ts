@@ -1,7 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
 import { RpcProvider, Contract, shortString } from "starknet";
-import { resolvePendingBattles } from "@/lib/resolveOracle";
 import { sendChannelMessage } from "@/lib/telegram";
 
 const redis = new Redis({
@@ -70,11 +69,6 @@ export async function POST(req: NextRequest) {
 
     // Notify Telegram before returning (Vercel kills the function after response)
     await notifyTelegram(Number(battleId));
-
-    // Fire-and-forget resolve — cron is the safety net if this gets cut off
-    resolvePendingBattles(1).then(({ resolved, skipped }) => {
-      console.log(`[defense] resolve triggered — resolved: ${resolved}, skipped: ${JSON.stringify(skipped)}`);
-    }).catch((e) => console.error("[defense] resolve error:", e));
 
     return NextResponse.json({ ok: true });
   } catch (e) {
