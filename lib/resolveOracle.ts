@@ -121,7 +121,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
       ]);
 
       resolved.push(battleId);
-      notifyResolved(provider, battleId).catch(() => {});
+      await notifyResolved(provider, battleId);
     } catch (e: any) {
       const msg = e?.message ?? String(e);
       console.error(`[oracle] battle ${battleId} failed:`, msg);
