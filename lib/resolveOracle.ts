@@ -17,6 +17,35 @@ export interface ResolveResult {
   skipped: { battleId: number; reason: string }[];
 }
 
+const NOTIFY_ABI = [
+  { type: "struct", name: "vibe_card::BattleData", members: [
+    { name: "challenger_token", type: "core::integer::u256" },
+    { name: "defender_token", type: "core::integer::u256" },
+    { name: "challenger_commitment", type: "core::felt252" },
+    { name: "defender_commitment", type: "core::felt252" },
+    { name: "challenger_activity_score", type: "core::integer::u32" },
+    { name: "defender_activity_score", type: "core::integer::u32" },
+    { name: "status", type: "core::integer::u8" },
+    { name: "winner", type: "core::integer::u256" },
+    { name: "initiated_at", type: "core::integer::u64" },
+  ]},
+  { type: "struct", name: "vibe_card::CardData", members: [
+    { name: "owner", type: "core::starknet::contract_address::ContractAddress" },
+    { name: "commitment", type: "core::felt252" },
+    { name: "ipfs_cid", type: "core::felt252" },
+    { name: "revealed_type", type: "core::integer::u8" },
+    { name: "palette_revealed", type: "core::bool" },
+    { name: "mint_timestamp", type: "core::integer::u64" },
+    { name: "persona_name", type: "core::felt252" },
+  ]},
+  { type: "function", name: "get_battle",
+    inputs: [{ name: "battle_id", type: "core::integer::u256" }],
+    outputs: [{ type: "vibe_card::BattleData" }], state_mutability: "view" },
+  { type: "function", name: "get_card",
+    inputs: [{ name: "token_id", type: "core::integer::u256" }],
+    outputs: [{ type: "vibe_card::CardData" }], state_mutability: "view" },
+] as const;
+
 /**
  * Pop up to `limit` battles from the pending queue and resolve them onchain.
  * Called by the Vercel cron AND immediately after a defender submits their move.
@@ -28,6 +57,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
 
   const provider = new RpcProvider({ nodeUrl: RPC_URL });
   const oracle = new Account({ provider, address: ORACLE_ADDRESS, signer: ORACLE_PRIVATE_KEY });
+  const readContract = new Contract({ abi: NOTIFY_ABI as any, address: VIBECARD_ADDRESS, providerOrAccount: provider });
 
   const pending = await redis.zrange("battles:pending_resolve", 0, limit - 1);
   if (!pending || pending.length === 0) {
@@ -49,6 +79,19 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
 
       if (!attackData || !defenseData) {
         skipped.push({ battleId, reason: `Missing moves — attack:${!!attackData} defense:${!!defenseData}` });
+        continue;
+      }
+
+      // Pre-flight: confirm defender tx is confirmed before submitting resolve
+      const onchainBattle = await readContract.get_battle({ low: battleId, high: 0 });
+      const onchainStatus = Number(onchainBattle.status);
+      if (onchainStatus === 2) {
+        await redis.zrem("battles:pending_resolve", String(battleId));
+        skipped.push({ battleId, reason: "Already resolved onchain" });
+        continue;
+      }
+      if (onchainStatus !== 1) {
+        skipped.push({ battleId, reason: `Defender tx not yet confirmed (status ${onchainStatus}) — will retry` });
         continue;
       }
 
@@ -98,34 +141,6 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
   return { resolved, skipped };
 }
 
-const NOTIFY_ABI = [
-  { type: "struct", name: "vibe_card::BattleData", members: [
-    { name: "challenger_token", type: "core::integer::u256" },
-    { name: "defender_token", type: "core::integer::u256" },
-    { name: "challenger_commitment", type: "core::felt252" },
-    { name: "defender_commitment", type: "core::felt252" },
-    { name: "challenger_activity_score", type: "core::integer::u32" },
-    { name: "defender_activity_score", type: "core::integer::u32" },
-    { name: "status", type: "core::integer::u8" },
-    { name: "winner", type: "core::integer::u256" },
-    { name: "initiated_at", type: "core::integer::u64" },
-  ]},
-  { type: "struct", name: "vibe_card::CardData", members: [
-    { name: "owner", type: "core::starknet::contract_address::ContractAddress" },
-    { name: "commitment", type: "core::felt252" },
-    { name: "ipfs_cid", type: "core::felt252" },
-    { name: "revealed_type", type: "core::integer::u8" },
-    { name: "palette_revealed", type: "core::bool" },
-    { name: "mint_timestamp", type: "core::integer::u64" },
-    { name: "persona_name", type: "core::felt252" },
-  ]},
-  { type: "function", name: "get_battle",
-    inputs: [{ name: "battle_id", type: "core::integer::u256" }],
-    outputs: [{ type: "vibe_card::BattleData" }], state_mutability: "view" },
-  { type: "function", name: "get_card",
-    inputs: [{ name: "token_id", type: "core::integer::u256" }],
-    outputs: [{ type: "vibe_card::CardData" }], state_mutability: "view" },
-] as const;
 
 async function notifyResolved(provider: RpcProvider, battleId: number) {
   try {

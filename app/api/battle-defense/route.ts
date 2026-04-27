@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "battleId, move, nonce required" }, { status: 400 });
     }
 
-    await redis.set(key(Number(battleId)), { move, nonce }, { ex: 86400 });
+    await redis.set(key(Number(battleId)), { move, nonce }, { ex: 60 * 60 * 24 * 30 });
     await redis.zadd("battles:pending_resolve", { score: Date.now(), member: String(battleId) });
 
     // Respond to client immediately
