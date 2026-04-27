@@ -110,7 +110,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
         contractAddress: VIBECARD_ADDRESS,
         entrypoint: "resolve_battle",
         calldata,
-      }]);
+      }], { version: 3 });
 
       console.log(`[oracle] battle ${battleId} resolved — tx: ${result.transaction_hash}`);
 
