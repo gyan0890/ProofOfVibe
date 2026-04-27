@@ -34,7 +34,7 @@ function TraitBar({
   return (
     <motion.div
       className="flex flex-col gap-0.5 w-full rounded-lg px-1.5 py-1"
-      animate={revealed ? { background: "rgba(239,68,68,0.06)" } : { background: "transparent" }}
+      animate={revealed ? { background: "rgba(239,68,68,0.06)" } : { background: "rgba(0,0,0,0)" }}
       transition={{ duration: 0.5 }}
       style={{ border: revealed ? "1px solid rgba(239,68,68,0.18)" : "1px solid transparent" }}
     >
