@@ -134,7 +134,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
         // Defender tx not yet confirmed onchain — leave in queue for cron retry
         skipped.push({ battleId, reason: "Defender tx pending — will retry" });
       } else {
-        skipped.push({ battleId, reason: msg.slice(0, 120) });
+        skipped.push({ battleId, reason: msg.slice(0, 600) });
       }
     }
   }
