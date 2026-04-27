@@ -7,9 +7,10 @@ import { useOnchainCards } from "@/hooks/useOnchainCards";
 import { seasonTimeRemaining } from "@/lib/utils";
 
 export default function SeasonPage() {
-  const [countdown, setCountdown] = useState(seasonTimeRemaining());
+  const [countdown, setCountdown] = useState<ReturnType<typeof seasonTimeRemaining> | null>(null);
 
   useEffect(() => {
+    setCountdown(seasonTimeRemaining());
     const t = setInterval(() => setCountdown(seasonTimeRemaining()), 1000);
     return () => clearInterval(t);
   }, []);
@@ -45,10 +46,10 @@ export default function SeasonPage() {
           <p className="text-sm text-white/40 font-ui mb-4">Mass reveal in</p>
           <div className="flex gap-6">
             {[
-              { v: countdown.days, l: "days" },
-              { v: countdown.hours, l: "hours" },
-              { v: countdown.minutes, l: "min" },
-              { v: countdown.seconds, l: "sec" },
+              { v: countdown?.days ?? 0, l: "days" },
+              { v: countdown?.hours ?? 0, l: "hours" },
+              { v: countdown?.minutes ?? 0, l: "min" },
+              { v: countdown?.seconds ?? 0, l: "sec" },
             ].map(({ v, l }) => (
               <div key={l} className="flex flex-col items-center">
                 <span className="font-card text-3xl font-semibold text-white tabular-nums">{String(v).padStart(2, "0")}</span>

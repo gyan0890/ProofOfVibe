@@ -1,5 +1,6 @@
-import { RpcProvider, Account, CallData, cairo } from "starknet";
+import { RpcProvider, Account, CallData, cairo, Contract, shortString } from "starknet";
 import { Redis } from "@upstash/redis";
+import { sendChannelMessage } from "@/lib/telegram";
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -77,6 +78,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
       ]);
 
       resolved.push(battleId);
+      notifyResolved(provider, battleId).catch(() => {});
     } catch (e: any) {
       const msg = e?.message ?? String(e);
       console.error(`[oracle] battle ${battleId} failed:`, msg);
@@ -91,4 +93,68 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
   }
 
   return { resolved, skipped };
+}
+
+const NOTIFY_ABI = [
+  { type: "struct", name: "vibe_card::BattleData", members: [
+    { name: "challenger_token", type: "core::integer::u256" },
+    { name: "defender_token", type: "core::integer::u256" },
+    { name: "challenger_commitment", type: "core::felt252" },
+    { name: "defender_commitment", type: "core::felt252" },
+    { name: "challenger_activity_score", type: "core::integer::u32" },
+    { name: "defender_activity_score", type: "core::integer::u32" },
+    { name: "status", type: "core::integer::u8" },
+    { name: "winner", type: "core::integer::u256" },
+    { name: "initiated_at", type: "core::integer::u64" },
+  ]},
+  { type: "struct", name: "vibe_card::CardData", members: [
+    { name: "owner", type: "core::starknet::contract_address::ContractAddress" },
+    { name: "commitment", type: "core::felt252" },
+    { name: "ipfs_cid", type: "core::felt252" },
+    { name: "revealed_type", type: "core::integer::u8" },
+    { name: "palette_revealed", type: "core::bool" },
+    { name: "mint_timestamp", type: "core::integer::u64" },
+    { name: "persona_name", type: "core::felt252" },
+  ]},
+  { type: "function", name: "get_battle",
+    inputs: [{ name: "battle_id", type: "core::integer::u256" }],
+    outputs: [{ type: "vibe_card::BattleData" }], state_mutability: "view" },
+  { type: "function", name: "get_card",
+    inputs: [{ name: "token_id", type: "core::integer::u256" }],
+    outputs: [{ type: "vibe_card::CardData" }], state_mutability: "view" },
+] as const;
+
+async function notifyResolved(provider: RpcProvider, battleId: number) {
+  try {
+    const contract = new Contract({ abi: NOTIFY_ABI as any, address: VIBECARD_ADDRESS, providerOrAccount: provider });
+    const battle = await contract.get_battle({ low: battleId, high: 0 });
+
+    const winnerToken = Number(battle.winner);
+    const challengerToken = Number(battle.challenger_token);
+    const defenderToken = Number(battle.defender_token);
+
+    const getName = async (tokenId: number): Promise<string> => {
+      try {
+        const raw = await contract.get_card({ low: tokenId, high: 0 });
+        return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0");
+      } catch { return `Card #${tokenId}`; }
+    };
+
+    const [challengerName, defenderName] = await Promise.all([
+      getName(challengerToken),
+      getName(defenderToken),
+    ]);
+
+    const winnerName = winnerToken === challengerToken ? challengerName : defenderName;
+    const loserName = winnerToken === challengerToken ? defenderName : challengerName;
+
+    const text =
+      `🏆 <b>Battle #${battleId} resolved!</b>
+` +
+      `<b>${winnerName}</b> defeated <b>${loserName}</b>`;
+
+    await sendChannelMessage(text);
+  } catch (e) {
+    console.error(`[oracle] notify resolved error for battle ${battleId}:`, e);
+  }
 }

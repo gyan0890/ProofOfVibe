@@ -10,7 +10,8 @@ import { CardData, VibeTypeIndex } from "@/lib/types";
 import { VIBE_TYPES } from "@/lib/vibeTypes";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { loadLocalCard, updateLocalCard } from "@/lib/storage";
-import { useBattle, OnchainBattle } from "@/hooks/useBattle";
+import { usePendingChallenges } from "@/hooks/usePendingChallenges";
+import { useBattleHistory } from "@/hooks/useBattleHistory";
 
 const VIBECARD_READ_ABI = [
   {
@@ -55,6 +56,13 @@ const VIBECARD_READ_ABI = [
   {
     type: "function",
     name: "get_battle_losses",
+    inputs: [{ name: "token_id", type: "core::integer::u256" }],
+    outputs: [{ type: "core::integer::u8" }],
+    state_mutability: "view",
+  },
+  {
+    type: "function",
+    name: "get_battle_wins",
     inputs: [{ name: "token_id", type: "core::integer::u256" }],
     outputs: [{ type: "core::integer::u8" }],
     state_mutability: "view",
@@ -105,15 +113,9 @@ export default function CardPage({ params }: { params: { id: string } }) {
   const [guessDistribution] = useState(() =>
     VIBE_TYPES.map((t) => ({ type: t, count: Math.floor(Math.random() * 30) }))
   );
-  const { getBattle } = useBattle();
-  const [pendingBattles, setPendingBattles] = useState<Array<{ battleId: number; battle: OnchainBattle }>>([]);
-  const [battleHistory, setBattleHistory] = useState<Array<{
-    battleId: number;
-    won: boolean;
-    opponentTokenId: number;
-    opponentPersona: string;
-    timestamp: number;
-  }>>([]);
+  const tokenId = parseTokenId(params.id);
+  const { challenges: pendingChallenges } = usePendingChallenges(tokenId);
+  const { history: battleHistory } = useBattleHistory(tokenId);
 
   useEffect(() => {
     async function loadCard() {
@@ -144,15 +146,17 @@ export default function CardPage({ params }: { params: { id: string } }) {
             providerOrAccount: provider,
           });
 
-          const [raw, traitRaw, lossesRaw] = await Promise.all([
+          const [raw, traitRaw, lossesRaw, winsRaw] = await Promise.all([
             contract.get_card({ low: tokenId, high: 0 }),
             contract.get_trait_state({ low: tokenId, high: 0 }),
             contract.get_battle_losses({ low: tokenId, high: 0 }),
+            contract.get_battle_wins({ low: tokenId, high: 0 }),
           ]);
 
           const owner: string = raw.owner?.toString() ?? "0x0";
           const revealed = Number(raw.revealed_type);
           const losses = Number(lossesRaw);
+          const wins = Number(winsRaw);
 
           const personaName = (() => {
             try { return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0"); }
@@ -189,7 +193,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
             mintTimestamp: Number(raw.mint_timestamp) * 1000,
             personaName,
             isAnchored: true,
-            battleRecord: { wins: 0, losses, total: losses },
+            battleRecord: { wins, losses, total: wins + losses },
             privacyProfile: storedPrivacyProfile,
             traitReveal: {
               trait1Word: decodeFelt(traitRaw.trait_1_word),
@@ -226,71 +230,9 @@ export default function CardPage({ params }: { params: { id: string } }) {
     loadCard();
   }, [params.id, provider]);
 
-  // Scan battle IDs 1-20 for pending challenges targeting this card
-  useEffect(() => {
-    const tokenId = parseTokenId(params.id);
-    if (tokenId === null) return;
 
-    async function scanPendingBattles() {
-      const ids = Array.from({ length: 20 }, (_, i) => i + 1);
-      const results = await Promise.all(ids.map((id) => getBattle(id)));
-      const pending = results
-        .map((b, i) => ({ battleId: i + 1, battle: b }))
-        .filter(
-          (entry): entry is { battleId: number; battle: OnchainBattle } =>
-            entry.battle !== null &&
-            entry.battle.defenderToken === tokenId &&
-            entry.battle.status === 0
-        );
-      setPendingBattles(pending);
-    }
 
-    scanPendingBattles();
-  }, [params.id, getBattle]);
 
-  // Scan for resolved battles involving this card — build battle history
-  useEffect(() => {
-    const tokenId = parseTokenId(params.id);
-    if (tokenId === null || !provider) return;
-
-    async function loadBattleHistory() {
-      const MAX = 50;
-      const ids = Array.from({ length: MAX }, (_, i) => i + 1);
-      const results = await Promise.all(ids.map((id) => getBattle(id).catch(() => null)));
-
-      const contract = new Contract({
-        abi: VIBECARD_READ_ABI as any,
-        address: CONTRACT_ADDRESSES.vibeCard,
-        providerOrAccount: provider,
-      });
-
-      const fetchPersona = async (tid: number): Promise<string> => {
-        try {
-          const raw = await contract.get_card({ low: tid, high: 0 });
-          return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0");
-        } catch { return `Card #${tid}`; }
-      };
-
-      const history: typeof battleHistory = [];
-      for (let i = 0; i < results.length; i++) {
-        const b = results[i];
-        if (!b || b.status !== 2) continue; // only resolved battles
-        const isChallenger = b.challengerToken === tokenId;
-        const isDefender = b.defenderToken === tokenId;
-        if (!isChallenger && !isDefender) continue;
-
-        const opponentTokenId = isChallenger ? b.defenderToken : b.challengerToken;
-        const won = b.winner === tokenId;
-        const opponentPersona = await fetchPersona(opponentTokenId);
-        history.push({ battleId: i + 1, won, opponentTokenId, opponentPersona, timestamp: b.initiatedAt });
-      }
-
-      history.sort((a, b) => b.timestamp - a.timestamp);
-      setBattleHistory(history);
-    }
-
-    loadBattleHistory();
-  }, [params.id, provider, getBattle]);
 
   if (loading) {
     return (
@@ -569,7 +511,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
                 })()) ||
                 (localCard && (localCard.id === params.id || String(localCard.tokenId) === params.id));
 
-              if (!isOwnCard || pendingBattles.length === 0) return null;
+              if (!isOwnCard || pendingChallenges.length === 0) return null;
 
               return (
                 <div
@@ -577,10 +519,10 @@ export default function CardPage({ params }: { params: { id: string } }) {
                   style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.18)" }}
                 >
                   <h3 className="font-card font-medium mb-3 text-sm" style={{ color: "#ef4444" }}>
-                    Pending Challenges ({pendingBattles.length})
+                    Pending Challenges ({pendingChallenges.length})
                   </h3>
                   <div className="flex flex-col gap-3">
-                    {pendingBattles.map(({ battleId }) => (
+                    {pendingChallenges.map(({ battleId }) => (
                       <div key={battleId} className="flex items-center justify-between gap-3">
                         <span className="text-sm text-white/60 font-ui">Battle #{battleId}</span>
                         <Link
@@ -689,7 +631,7 @@ export default function CardPage({ params }: { params: { id: string } }) {
               <div>
                 <h3 className="font-card font-medium text-white/60 mb-3 text-sm tracking-wider uppercase text-xs">Battle History</h3>
                 <div className="flex flex-col gap-2">
-                  {battleHistory.slice(0, 8).map((b) => (
+                  {battleHistory.filter((b) => b.status === 2).slice(0, 8).map((b) => (
                     <div
                       key={b.battleId}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg"
@@ -708,10 +650,10 @@ export default function CardPage({ params }: { params: { id: string } }) {
                       <span className="text-xs text-white/60 font-ui flex-1 truncate">
                         {b.won ? "Defeated" : "Lost to"}{" "}
                         <Link
-                          href={`/card/${b.opponentTokenId}`}
+                          href={`/card/${b.opponentToken}`}
                           className="text-violet-400/80 hover:text-violet-400 transition-colors"
                         >
-                          {b.opponentPersona}
+                          {b.opponentName}
                         </Link>
                       </span>
                       <span className="text-[10px] text-white/20 font-ui shrink-0">

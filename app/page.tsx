@@ -30,13 +30,14 @@ function LiveStat({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function LandingPage() {
-  const [countdown, setCountdown] = useState(seasonTimeRemaining());
+  const [countdown, setCountdown] = useState<ReturnType<typeof seasonTimeRemaining> | null>(null);
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 400], [0, -80]);
   const { cards: onchainCards } = useOnchainCards(6);
   const floatingCards = onchainCards.slice(0, 4);
 
   useEffect(() => {
+    setCountdown(seasonTimeRemaining());
     const t = setInterval(() => setCountdown(seasonTimeRemaining()), 1000);
     return () => clearInterval(t);
   }, []);
@@ -78,7 +79,7 @@ export default function LandingPage() {
             </h1>
             <p className="text-white/50 text-lg font-ui mb-4 max-w-lg">
               Battle to reveal. Season ends in{" "}
-              <span className="text-white font-medium">{countdown.days}d {countdown.hours}h</span>.
+              <span className="text-white font-medium">{countdown?.days ?? 0}d {countdown?.hours ?? 0}h</span>.
             </p>
           </motion.div>
 
@@ -89,13 +90,13 @@ export default function LandingPage() {
             className="flex gap-6 mb-10 p-4 rounded-2xl"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
           >
-            <CountdownUnit value={countdown.days} label="days" />
+            <CountdownUnit value={countdown?.days ?? 0} label="days" />
             <div className="w-px bg-white/10" />
-            <CountdownUnit value={countdown.hours} label="hours" />
+            <CountdownUnit value={countdown?.hours ?? 0} label="hours" />
             <div className="w-px bg-white/10" />
-            <CountdownUnit value={countdown.minutes} label="min" />
+            <CountdownUnit value={countdown?.minutes ?? 0} label="min" />
             <div className="w-px bg-white/10" />
-            <CountdownUnit value={countdown.seconds} label="sec" />
+            <CountdownUnit value={countdown?.seconds ?? 0} label="sec" />
           </motion.div>
 
           <motion.div

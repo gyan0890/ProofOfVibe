@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useProvider } from "@starknet-react/core";
 import { Contract } from "starknet";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
+import { isMezcalEnabled, mezcalGetBattles } from "@/lib/mezcalClient";
 
 const BATTLE_ABI = [
   {
@@ -30,10 +31,8 @@ const BATTLE_ABI = [
   },
 ] as const;
 
-// Scan this many IDs ahead of the highest known battle
 const LOOK_AHEAD = 20;
 const STOP_AFTER_CONSECUTIVE_ZEROS = 3;
-// Minimum ms between focus-triggered refreshes
 const FOCUS_COOLDOWN_MS = 60_000;
 
 const maxIdKey = (tokenId: number) => `pov:maxBattleId:${tokenId}`;
@@ -67,17 +66,50 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
   const refresh = useCallback(async () => {
     if (!myTokenId || !provider) return;
     setLoading(true);
+
+    const addr = CONTRACT_ADDRESSES.vibeCard;
+    const storedMax = getStoredMaxId(myTokenId);
+    const startId = Math.max(1, storedMax - 2);
+    const ceiling = storedMax + LOOK_AHEAD;
+
     try {
+      // ── Mezcal path: parallel fetch of all IDs in the scan window ──────
+      if (isMezcalEnabled()) { try {
+        const t0 = performance.now();
+        const ids = Array.from({ length: ceiling - startId + 1 }, (_, i) => startId + i);
+        const battleMap = await mezcalGetBattles(addr, ids);
+
+        const pendingDefender: PendingChallenge[] = [];
+        const pendingChallenger: BattleToResolve[] = [];
+        let newMax = storedMax;
+
+        for (const [id, b] of Array.from(battleMap.entries())) {
+          if (!b) continue;
+          if (id > newMax) newMax = id;
+          if (b.status === 0 && b.defenderToken === myTokenId) {
+            pendingDefender.push({ battleId: id, challengerToken: b.challengerToken, initiatedAt: b.initiatedAt });
+          }
+          if (b.status === 1 && b.challengerToken === myTokenId) {
+            pendingChallenger.push({ battleId: id, defenderToken: b.defenderToken, initiatedAt: b.initiatedAt });
+          }
+        }
+
+        setStoredMaxId(myTokenId, newMax);
+        setChallenges(pendingDefender);
+        setToResolve(pendingChallenger);
+        lastRefreshAt.current = Date.now();
+        console.log(`[Mezcal] usePendingChallenges: scanned ${ids.length} IDs in ${(performance.now() - t0).toFixed(0)}ms`);
+        return;
+      } catch (mezcalErr) {
+        console.warn("[Mezcal] usePendingChallenges failed, falling back to RPC:", mezcalErr);
+      } }
+
+      // ── RPC fallback: sequential scan ─────────────────────────────────
       const contract = new Contract({
         abi: BATTLE_ABI as any,
-        address: CONTRACT_ADDRESSES.vibeCard,
+        address: addr,
         providerOrAccount: provider,
       });
-
-      const storedMax = getStoredMaxId(myTokenId);
-      // Start just behind the last known ID so we don't miss edge cases
-      const startId = Math.max(1, storedMax - 2);
-      const ceiling = storedMax + LOOK_AHEAD;
 
       const pendingDefender: PendingChallenge[] = [];
       const pendingChallenger: BattleToResolve[] = [];
@@ -86,9 +118,8 @@ export function usePendingChallenges(myTokenId: number | null | undefined) {
 
       for (let id = startId; id <= ceiling; id++) {
         let b: any;
-        try {
-          b = await contract.get_battle({ low: id, high: 0 });
-        } catch {
+        try { b = await contract.get_battle({ low: id, high: 0 }); }
+        catch {
           consecutiveZeros++;
           if (consecutiveZeros >= STOP_AFTER_CONSECUTIVE_ZEROS) break;
           continue;

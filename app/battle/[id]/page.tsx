@@ -637,16 +637,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
               <p className="text-white/30 text-sm font-ui">Battle #{activeBattle.battleId}</p>
               {!battleLoading && <p className="text-white/20 text-xs font-ui">Expires in ~1h if no response</p>}
 
-              {onchainBattle && activeBattle.battleId > 0 && onchainBattle.initiatedAt > 0 && Date.now() > onchainBattle.initiatedAt + 3_600_000 && (
-                <button
-                  onClick={handleClaimExpired}
-                  disabled={battleLoading}
-                  className="min-touch px-6 py-2.5 rounded-xl font-card text-sm text-white transition-all hover:scale-105 disabled:opacity-50"
-                  style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)" }}
-                >
-                  {battleLoading ? "Claiming…" : "Claim win (expired)"}
-                </button>
-              )}
+
 
               {/* ── Share on X ── */}
               <div className="flex flex-col items-center gap-3 mt-4 w-full max-w-xs">

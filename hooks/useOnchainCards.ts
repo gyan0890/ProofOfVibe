@@ -5,6 +5,7 @@ import { useProvider } from "@starknet-react/core";
 import { Contract, shortString } from "starknet";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
 import { CardData, VibeTypeIndex } from "@/lib/types";
+import { isMezcalEnabled, mezcalFetchCardData, mezcalTokenCounter } from "@/lib/mezcalClient";
 
 const VIBECARD_READ_ABI = [
   {
@@ -18,17 +19,6 @@ const VIBECARD_READ_ABI = [
       { name: "palette_revealed", type: "core::bool" },
       { name: "mint_timestamp", type: "core::integer::u64" },
       { name: "persona_name", type: "core::felt252" },
-    ],
-  },
-  {
-    type: "struct",
-    name: "vibe_card::TraitRevealState",
-    members: [
-      { name: "trait_1_word", type: "core::felt252" },
-      { name: "trait_2_word", type: "core::felt252" },
-      { name: "bar_fills_accurate", type: "core::bool" },
-      { name: "palette_revealed", type: "core::bool" },
-      { name: "type_revealed", type: "core::bool" },
     ],
   },
   {
@@ -73,21 +63,53 @@ export function useOnchainCards(limit = 50) {
     async function fetchCards() {
       setLoading(true);
       setError(null);
+      const addr = CONTRACT_ADDRESSES.vibeCard;
+
       try {
+        // ── Mezcal path: parallel reads, no rate-limit delays ──────────────
+        if (isMezcalEnabled()) {
+          try {
+            const t0 = performance.now();
+
+            const total = Math.min(
+              await mezcalTokenCounter(addr),
+              limit
+            );
+
+            if (total === 0) { setCards([]); return; }
+
+            const ids = Array.from({ length: total }, (_, i) => i + 1);
+            const results = await Promise.allSettled(
+              ids.map((id) => mezcalFetchCardData(addr, id))
+            );
+
+            const fetched = results
+              .filter((r): r is PromiseFulfilledResult<CardData | null> => r.status === "fulfilled")
+              .map((r) => r.value)
+              .filter((c): c is CardData => c !== null);
+
+            console.log(
+              `[Mezcal] useOnchainCards: ${fetched.length}/${total} cards in ${(performance.now() - t0).toFixed(0)}ms`
+            );
+
+            setCards(fetched);
+            return;
+          } catch (mezcalErr) {
+            console.warn("[Mezcal] useOnchainCards failed, falling back to RPC:", mezcalErr);
+          }
+        }
+
+        // ── RPC fallback: batched reads with rate-limit protection ──────────
         const contract = new Contract({
           abi: VIBECARD_READ_ABI as any,
-          address: CONTRACT_ADDRESSES.vibeCard,
+          address: addr,
           providerOrAccount: provider,
         });
 
         const counterRaw = await contract.token_counter();
         const total = Math.min(Number(counterRaw), limit);
-        if (total === 0) {
-          setCards([]);
-          return;
-        }
+        if (total === 0) { setCards([]); return; }
 
-        // Fetch cards in batches to avoid RPC rate limits, with per-call retry
         const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
         const fetchWithRetry = async <T>(fn: () => Promise<T>, retries = 3, backoff = 400): Promise<T> => {
           for (let i = 0; i < retries; i++) {
@@ -102,6 +124,7 @@ export function useOnchainCards(limit = 50) {
         const BATCH_SIZE = 5;
         const ids = Array.from({ length: total }, (_, i) => i + 1);
         const allResults: PromiseSettledResult<CardData>[] = [];
+
         for (let b = 0; b < ids.length; b += BATCH_SIZE) {
           if (b > 0) await delay(200);
           const batch = ids.slice(b, b + BATCH_SIZE);
@@ -119,11 +142,8 @@ export function useOnchainCards(limit = 50) {
               const wins = Number(winsRaw);
 
               const personaName = (() => {
-                try {
-                  return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0");
-                } catch {
-                  return `Vibe #${id}`;
-                }
+                try { return shortString.decodeShortString(raw.persona_name?.toString() ?? "0x0"); }
+                catch { return `Vibe #${id}`; }
               })();
 
               const card: CardData = {

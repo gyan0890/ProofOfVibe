@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useAccount, useProvider, useSendTransaction } from "@starknet-react/core";
 import { hash, Contract } from "starknet";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
+import { isMezcalEnabled, mezcalGetBattle } from "@/lib/mezcalClient";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -164,7 +165,7 @@ export function useBattle() {
           fetch("/api/battle-attack", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ battleId, move, nonce }),
+            body: JSON.stringify({ battleId, move, nonce, challengerTokenId, defenderTokenId }),
           }).catch(() => {});
         }
 
@@ -314,6 +315,25 @@ export function useBattle() {
   // -------------------------------------------------------------------------
   const getBattle = useCallback(
     async (battleId: number): Promise<OnchainBattle | null> => {
+      // Try Mezcal first for faster reads
+      if (isMezcalEnabled()) {
+        try {
+          const b = await mezcalGetBattle(CONTRACT_ADDRESSES.vibeCard, battleId);
+          if (!b) return null;
+          return {
+            challengerToken: b.challengerToken,
+            defenderToken: b.defenderToken,
+            status: b.status,
+            winner: b.winner,
+            challengerActivityScore: b.challengerActivityScore,
+            defenderActivityScore: b.defenderActivityScore,
+            initiatedAt: b.initiatedAt,
+          };
+        } catch (e) {
+          console.warn("[useBattle.getBattle] Mezcal failed, falling back to RPC:", e);
+        }
+      }
+
       if (!provider) return null;
       try {
         const contract = new Contract({

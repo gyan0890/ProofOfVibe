@@ -1,5 +1,7 @@
 export const SEASON_DURATION_DAYS = 14;
-export const SEASON_START = new Date("2025-01-01T00:00:00Z").getTime();
+export const SEASON_START = new Date(
+  process.env.NEXT_PUBLIC_SEASON_START ?? "2026-05-03T00:00:00Z"
+).getTime();
 export const SEASON_END = SEASON_START + SEASON_DURATION_DAYS * 24 * 60 * 60 * 1000;
 
 export const BATTLE_EXPIRY_SECONDS = 3600; // 1 hour
@@ -25,6 +27,9 @@ export const CONTRACT_ADDRESSES = {
 };
 
 export const SHARE_TWEET_TEMPLATE = (cardUrl: string) =>
-  `I just minted my Proof of Vibe on Starknet 👁️\nMy type is hidden. Can you guess what I am?\nChallenge me: ${cardUrl}\n#ProofOfVibe #Starknet`;
+  `I just minted my Proof of Vibe on Starknet 👁️
+My type is hidden. Can you guess what I am?
+Challenge me: ${cardUrl}
+#ProofOfVibe #Starknet`;
 
 export const VOYAGER_API_BASE = "https://api.voyager.online/beta";

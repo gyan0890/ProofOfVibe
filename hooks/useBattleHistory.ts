@@ -4,6 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useProvider } from "@starknet-react/core";
 import { Contract, shortString } from "starknet";
 import { CONTRACT_ADDRESSES } from "@/lib/constants";
+import {
+  isMezcalEnabled,
+  mezcalGetBattle,
+  mezcalGetRawCard,
+  mezcalGetBattles,
+} from "@/lib/mezcalClient";
 
 const BATTLE_ABI = [
   {
@@ -62,7 +68,6 @@ export interface BattleHistoryEntry {
 
 const LOOK_AHEAD = 20;
 const STOP_AFTER = 3;
-// Cache TTL: 5 minutes
 const CACHE_TTL_MS = 5 * 60_000;
 
 const cacheKey = (id: number) => `pov:battleHistory:${id}`;
@@ -97,26 +102,89 @@ export function useBattleHistory(myTokenId: number | null | undefined) {
     if (!myTokenId || !provider) return;
     setLoading(true);
 
-    // Show cached data immediately while we fetch new
     const { entries: cached, ts } = loadCache(myTokenId);
     if (cached.length > 0) setHistory(cached);
-
-    // Skip full refresh if cache is fresh
     if (Date.now() - ts < CACHE_TTL_MS && cached.length > 0) {
       setLoading(false);
       return;
     }
 
+    const addr = CONTRACT_ADDRESSES.vibeCard;
+    const maxScanned = getMaxScanned(myTokenId);
+    const startId = Math.max(1, maxScanned - 2);
+    const ceiling = maxScanned + LOOK_AHEAD;
+
     try {
+      // ── Mezcal path: fetch all battle IDs in the window in parallel ────
+      if (isMezcalEnabled()) { try {
+        const t0 = performance.now();
+        const ids = Array.from({ length: ceiling - startId + 1 }, (_, i) => startId + i);
+        const battleMap = await mezcalGetBattles(addr, ids);
+
+        const newEntries: BattleHistoryEntry[] = [];
+        let newMax = maxScanned;
+
+        for (const [id, b] of Array.from(battleMap.entries())) {
+          if (!b) continue;
+          if (id > newMax) newMax = id;
+
+          const isChallenger = b.challengerToken === myTokenId;
+          const isDefender = b.defenderToken === myTokenId;
+          if (!isChallenger && !isDefender) continue;
+
+          const status = b.status as 0 | 1 | 2;
+          const opponentToken = isChallenger ? b.defenderToken : b.challengerToken;
+          newEntries.push({
+            battleId: id,
+            role: isChallenger ? "challenger" : "defender",
+            opponentToken,
+            opponentName: `Card #${opponentToken}`,
+            status,
+            won: status === 2 ? b.winner === myTokenId : null,
+            initiatedAt: b.initiatedAt,
+          });
+        }
+
+        setMaxScanned(myTokenId, newMax);
+
+        // Resolve opponent names in parallel via Mezcal
+        const uniqueOpponents = Array.from(new Set(newEntries.map((e) => e.opponentToken)));
+        const nameMap = new Map<number, string>();
+        await Promise.allSettled(
+          uniqueOpponents.map(async (tokenId) => {
+            try {
+              const card = await mezcalGetRawCard(addr, tokenId);
+              nameMap.set(tokenId, card.personaName);
+            } catch {}
+          })
+        );
+        for (const entry of newEntries) {
+          const name = nameMap.get(entry.opponentToken);
+          if (name) entry.opponentName = name;
+        }
+
+        const mergedMap = new Map<number, BattleHistoryEntry>();
+        for (const e of cached) mergedMap.set(e.battleId, e);
+        for (const e of newEntries) mergedMap.set(e.battleId, e);
+        const merged = Array.from(mergedMap.values()).sort((a, b) => b.initiatedAt - a.initiatedAt);
+
+        console.log(
+          `[Mezcal] useBattleHistory: ${merged.length} entries in ${(performance.now() - t0).toFixed(0)}ms`
+        );
+
+        saveCache(myTokenId, merged);
+        setHistory(merged);
+        return;
+      } catch (mezcalErr) {
+        console.warn("[Mezcal] useBattleHistory failed, falling back to RPC:", mezcalErr);
+      } }
+
+      // ── RPC fallback: sequential scan ─────────────────────────────────
       const contract = new Contract({
         abi: BATTLE_ABI as any,
-        address: CONTRACT_ADDRESSES.vibeCard,
+        address: addr,
         providerOrAccount: provider,
       });
-
-      const maxScanned = getMaxScanned(myTokenId);
-      const startId = Math.max(1, maxScanned - 2);
-      const ceiling = maxScanned + LOOK_AHEAD;
 
       const newEntries: BattleHistoryEntry[] = [];
       let zeros = 0;
@@ -146,7 +214,7 @@ export function useBattleHistory(myTokenId: number | null | undefined) {
           battleId: id,
           role: isChallenger ? "challenger" : "defender",
           opponentToken,
-          opponentName: "Card #" + opponentToken, // resolved below
+          opponentName: "Card #" + opponentToken,
           status,
           won: status === 2 ? winner === myTokenId : null,
           initiatedAt: initiatedAt * 1000,
@@ -155,7 +223,6 @@ export function useBattleHistory(myTokenId: number | null | undefined) {
 
       setMaxScanned(myTokenId, newMax);
 
-      // Batch-resolve opponent names in parallel (max 5 at a time)
       const BATCH = 5;
       for (let i = 0; i < newEntries.length; i += BATCH) {
         const slice = newEntries.slice(i, i + BATCH);
@@ -169,7 +236,6 @@ export function useBattleHistory(myTokenId: number | null | undefined) {
         );
       }
 
-      // Merge: new entries override stale cached ones for the same battle ID
       const mergedMap = new Map<number, BattleHistoryEntry>();
       for (const e of cached) mergedMap.set(e.battleId, e);
       for (const e of newEntries) mergedMap.set(e.battleId, e);
