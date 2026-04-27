@@ -56,7 +56,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
   }
 
   const provider = new RpcProvider({ nodeUrl: RPC_URL });
-  const oracle = new Account({ provider, address: ORACLE_ADDRESS, signer: ORACLE_PRIVATE_KEY });
+  const oracle = new Account(provider, ORACLE_ADDRESS, ORACLE_PRIVATE_KEY);
   const readContract = new Contract({ abi: NOTIFY_ABI as any, address: VIBECARD_ADDRESS, providerOrAccount: provider });
 
   const pending = await redis.zrange("battles:pending_resolve", 0, limit - 1);
@@ -110,7 +110,15 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
         contractAddress: VIBECARD_ADDRESS,
         entrypoint: "resolve_battle",
         calldata,
-      }], { version: 3 });
+      }], {
+        version: "0x3" as any,
+        resourceBounds: {
+          l1_gas: { max_amount: "0x0", max_price_per_unit: "0x0" },
+          l2_gas: { max_amount: "0x200000", max_price_per_unit: "0x400000000" },
+          l1_data_gas: { max_amount: "0x2000", max_price_per_unit: "0x2000000000000" },
+        },
+        tip: "0x0" as any,
+      });
 
       console.log(`[oracle] battle ${battleId} resolved — tx: ${result.transaction_hash}`);
 
