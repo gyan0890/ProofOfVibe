@@ -98,7 +98,7 @@ interface PendingBattle {
 export default function BattlePage({ params }: { params: { id: string } }) {
   const { address } = useAccount();
   const { provider } = useProvider();
-  const { initiateBattle, resolveBattle, claimExpiredBattle, getBattle, loading: battleLoading, error: battleError } = useBattle();
+  const { initiateBattle, claimExpiredBattle, getBattle, loading: battleLoading, error: battleError } = useBattle();
 
   // useMyCard gives us the canonical version with a resolved tokenId.
   const { card: myCard, loading: myCardLoading } = useMyCard();
@@ -238,28 +238,8 @@ export default function BattlePage({ params }: { params: { id: string } }) {
         setActiveBattle(pending);
         setOnchainBattle(battle);
 
-        if (battle.status === 0) {
+        if (battle.status === 0 || battle.status === 1) {
           setStep("waiting");
-        } else if (battle.status === 1) {
-          setStep("waiting");
-          let defenderMove = 0;
-          let defenderNonce = "0x1";
-          try {
-            const dr = await fetch(`/api/battle-defense?battleId=${pending.battleId}`);
-            const dj = await dr.json();
-            if (dj.defense) { defenderMove = dj.defense.move; defenderNonce = dj.defense.nonce; }
-          } catch {}
-
-          const resolveResult = await resolveBattle(pending.battleId, pending.move, pending.nonce, defenderMove, defenderNonce);
-          if (!resolveResult) {
-            setLocalError("Auto-resolve failed — please try again.");
-            return;
-          }
-          setTxHash(resolveResult.txHash);
-          const updated = await getBattle(pending.battleId);
-          if (updated) setOnchainBattle(updated);
-          setStep("resolved");
-          window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
         } else if (battle.status === 2) {
           setStep("resolved");
         }
@@ -276,26 +256,9 @@ export default function BattlePage({ params }: { params: { id: string } }) {
       const battle = await getBattle(activeBattle.battleId);
       if (!battle) return;
       setOnchainBattle(battle);
-      if (battle.status === 1) {
+      if (battle.status === 2) {
         clearInterval(pollRef.current!);
-        const saved = localStorage.getItem(`pendingBattle_${activeBattle.battleId}`);
-        let pending = activeBattle;
-        if (saved) { try { pending = JSON.parse(saved) as PendingBattle; } catch { /* ignore */ } }
-        let defenderMove = 0;
-        let defenderNonce = "0x1";
-        try {
-          const dr = await fetch(`/api/battle-defense?battleId=${pending.battleId}`);
-          const dj = await dr.json();
-          if (dj.defense) { defenderMove = dj.defense.move; defenderNonce = dj.defense.nonce; }
-        } catch {}
-
-        const resolveResult = await resolveBattle(pending.battleId, pending.move, pending.nonce, defenderMove, defenderNonce);
-        if (!resolveResult) {
-          setLocalError("Auto-resolve failed — please refresh and try again.");
-          return;
-        }
-        setTxHash(resolveResult.txHash);
-        const updated = await getBattle(pending.battleId);
+        const updated = await getBattle(activeBattle.battleId);
         if (updated) setOnchainBattle(updated);
         setStep("resolved");
         window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
@@ -305,7 +268,7 @@ export default function BattlePage({ params }: { params: { id: string } }) {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [step, activeBattle, getBattle, resolveBattle]);
+  }, [step, activeBattle, getBattle]);
 
   async function handleCommitMove(moveIndex: number) {
     if (submitting || challengerTokenId === null || defenderTokenId === null) return;
@@ -354,30 +317,6 @@ export default function BattlePage({ params }: { params: { id: string } }) {
 
     setTxHash(result.txHash);
     const updated = await getBattle(activeBattle.battleId);
-    if (updated) setOnchainBattle(updated);
-    setStep("resolved");
-    window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
-  }
-
-  async function handleResolve() {
-    if (!activeBattle) return;
-    setLocalError(null);
-
-    let pending = activeBattle;
-    const saved = localStorage.getItem(`pendingBattle_${activeBattle.battleId}`);
-    if (saved) {
-      try { pending = JSON.parse(saved) as PendingBattle; } catch { /* ignore */ }
-    }
-
-    const result = await resolveBattle(pending.battleId, pending.move, pending.nonce, 0, "0x1");
-
-    if (!result) {
-      setLocalError(battleError ?? "Resolve failed");
-      return;
-    }
-
-    setTxHash(result.txHash);
-    const updated = await getBattle(pending.battleId);
     if (updated) setOnchainBattle(updated);
     setStep("resolved");
     window.dispatchEvent(new Event("proofofvibe:battleUpdated"));
