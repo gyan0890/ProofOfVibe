@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     await redis.set(key(Number(battleId)), { move, nonce }, { ex: 60 * 60 * 24 * 30 });
 
     if (challengerTokenId && defenderTokenId) {
-      notifyTelegram(battleId, challengerTokenId, defenderTokenId).catch(() => {});
+      await notifyTelegram(battleId, challengerTokenId, defenderTokenId);
     }
 
     return NextResponse.json({ ok: true });

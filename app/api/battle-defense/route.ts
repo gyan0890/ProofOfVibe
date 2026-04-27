@@ -68,18 +68,15 @@ export async function POST(req: NextRequest) {
     await redis.set(key(Number(battleId)), { move, nonce }, { ex: 60 * 60 * 24 * 30 });
     await redis.zadd("battles:pending_resolve", { score: Date.now(), member: String(battleId) });
 
-    // Respond to client immediately
-    const response = NextResponse.json({ ok: true });
+    // Notify Telegram before returning (Vercel kills the function after response)
+    await notifyTelegram(Number(battleId));
 
-    // Fire-and-forget: resolve + notify in parallel
-    Promise.all([
-      resolvePendingBattles(1).then(({ resolved, skipped }) => {
-        console.log(`[defense] resolve triggered — resolved: ${resolved}, skipped: ${JSON.stringify(skipped)}`);
-      }),
-      notifyTelegram(Number(battleId)),
-    ]).catch((e) => console.error("[defense] background error:", e));
+    // Fire-and-forget resolve — cron is the safety net if this gets cut off
+    resolvePendingBattles(1).then(({ resolved, skipped }) => {
+      console.log(`[defense] resolve triggered — resolved: ${resolved}, skipped: ${JSON.stringify(skipped)}`);
+    }).catch((e) => console.error("[defense] resolve error:", e));
 
-    return response;
+    return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("battle-defense POST error:", e);
     return NextResponse.json({ error: "internal error" }, { status: 500 });
