@@ -146,10 +146,13 @@ export function useBattle() {
               e.keys[0]?.toLowerCase() === battleInitiatedKey.toLowerCase()
           );
           if (ev) {
-            // battle_id (u256) may be in keys[1] (if indexed) or data[0]/data[1] (non-indexed low/high)
-            const idHex = ev.keys[1] ?? ev.data?.[0];
-            if (idHex) {
-              battleId = Number(BigInt(idHex));
+            // battle_id is #[key] u256 → keys[1]=low, keys[2]=high
+            const lowHex = ev.keys[1] ?? ev.data?.[0];
+            const highHex = ev.keys[2] ?? ev.data?.[1];
+            if (lowHex) {
+              const low = BigInt(lowHex);
+              const high = highHex ? BigInt(highHex) : BigInt(0);
+              battleId = Number(low + (high << BigInt(128)));
             }
             console.log("[useBattle] BattleInitiated event found, keys:", ev.keys, "data:", ev.data, "→ battleId:", battleId);
           } else {
