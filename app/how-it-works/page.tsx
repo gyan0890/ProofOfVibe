@@ -57,7 +57,7 @@ export default function HowItWorksPage() {
             style={{ border: "1px solid rgba(255,255,255,0.07)" }}
           >
             <video
-              src="/pov-intro.mp4"
+              src="/pov-tutorial.mp4"
               controls
               playsInline
               preload="metadata"
