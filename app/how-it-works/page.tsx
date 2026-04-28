@@ -293,6 +293,29 @@ export default function HowItWorksPage() {
           </Card>
         </motion.section>
 
+        {/* ── Telegram ── */}
+        <motion.section {...fadeUp(0.05)} className="mb-16">
+          <Card className="flex flex-col sm:flex-row items-center gap-5">
+            <div className="text-4xl shrink-0">📣</div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="font-card text-white font-medium mb-1">Get battle notifications</h3>
+              <p className="text-white/40 text-sm font-ui leading-relaxed">
+                Join our Telegram channel to be notified when battles are challenged, defended, and resolved — in real time.
+              </p>
+            </div>
+            <a
+              href="https://t.me/ProofOfVibeArena"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl font-card text-sm font-medium text-white transition-all hover:scale-105"
+              style={{ background: "linear-gradient(135deg, #229ED9, #1a7fb5)" }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.26 13.943l-2.963-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.891.616z"/></svg>
+              Join channel
+            </a>
+          </Card>
+        </motion.section>
+
         {/* CTA */}
         <motion.div {...fadeUp(0.05)} className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
