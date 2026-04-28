@@ -8,9 +8,16 @@ const redis = new Redis({
 });
 
 const VIBECARD_ADDRESS = process.env.NEXT_PUBLIC_VIBECARD_CONTRACT_ADDRESS!;
-const RPC_URL = process.env.NEXT_PUBLIC_STARKNET_RPC_URL!;
 const ORACLE_ADDRESS = process.env.ORACLE_ADDRESS!;
 const ORACLE_PRIVATE_KEY = process.env.ORACLE_PRIVATE_KEY!;
+
+// Try RPC URLs in order — Alchemy v0_10 rejects l1_data_gas, so prefer fallbacks
+const ORACLE_RPC_URLS = [
+  process.env.NEXT_PUBLIC_STARKNET_RPC_FALLBACK_1,
+  process.env.NEXT_PUBLIC_STARKNET_RPC_FALLBACK_2,
+  process.env.NEXT_PUBLIC_STARKNET_RPC_URL,
+  "https://starknet-sepolia-rpc.publicnode.com",
+].filter(Boolean) as string[];
 
 export interface ResolveResult {
   resolved: number[];
@@ -55,9 +62,9 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
     return { resolved: [], skipped: [{ battleId: 0, reason: "Oracle wallet not configured" }] };
   }
 
-  const provider = new RpcProvider({ nodeUrl: RPC_URL });
-  const oracle = new Account({ provider, address: ORACLE_ADDRESS, signer: ORACLE_PRIVATE_KEY });
-  const readContract = new Contract({ abi: NOTIFY_ABI as any, address: VIBECARD_ADDRESS, providerOrAccount: provider });
+  // Use first available RPC for reads; execute() will iterate ORACLE_RPC_URLS
+  const readProvider = new RpcProvider({ nodeUrl: ORACLE_RPC_URLS[0] });
+  const readContract = new Contract({ abi: NOTIFY_ABI as any, address: VIBECARD_ADDRESS, providerOrAccount: readProvider });
 
   const pending = await redis.zrange("battles:pending_resolve", 0, limit - 1);
   if (!pending || pending.length === 0) {
@@ -106,19 +113,37 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
         defenseData.nonce,
       ]);
 
-      const result = await oracle.execute([{
-        contractAddress: VIBECARD_ADDRESS,
-        entrypoint: "resolve_battle",
-        calldata,
-      }], {
-        version: "0x3",
-        resourceBounds: {
-          l1_gas:      { max_amount: BigInt(0),           max_price_per_unit: BigInt('0x200000000000000') },
-          l2_gas:      { max_amount: BigInt(0x100000),    max_price_per_unit: BigInt('0x1000000000') },
-          l1_data_gas: { max_amount: BigInt(0x2000),      max_price_per_unit: BigInt('0x20000000000') },
-        },
-        tip: BigInt(0),
-      });
+      const RESOURCE_BOUNDS = {
+        l1_gas:      { max_amount: BigInt(0),        max_price_per_unit: BigInt('0x200000000000000') },
+        l2_gas:      { max_amount: BigInt(0x100000), max_price_per_unit: BigInt('0x1000000000') },
+        l1_data_gas: { max_amount: BigInt(0x2000),   max_price_per_unit: BigInt('0x20000000000') },
+      };
+
+      let result: { transaction_hash: string } | undefined;
+      let execError: any;
+      for (const rpcUrl of ORACLE_RPC_URLS) {
+        try {
+          const provider = new RpcProvider({ nodeUrl: rpcUrl });
+          const oracle = new Account({ provider, address: ORACLE_ADDRESS, signer: ORACLE_PRIVATE_KEY });
+          result = await oracle.execute([{
+            contractAddress: VIBECARD_ADDRESS,
+            entrypoint: "resolve_battle",
+            calldata,
+          }], { version: "0x3", resourceBounds: RESOURCE_BOUNDS, tip: BigInt(0) });
+          execError = undefined;
+          console.log(`[oracle] used rpc: ${rpcUrl.slice(0, 50)}`);
+          break;
+        } catch (rpcErr: any) {
+          execError = rpcErr;
+          const msg = rpcErr?.baseError?.data ?? rpcErr?.message ?? "";
+          if (String(msg).includes("unexpected field") || String(msg).includes("l1_data_gas")) {
+            console.warn(`[oracle] ${rpcUrl.slice(0,50)} rejected l1_data_gas — trying next`);
+            continue;
+          }
+          throw rpcErr;
+        }
+      }
+      if (!result) throw execError ?? new Error("All RPC URLs failed");
 
       console.log(`[oracle] battle ${battleId} resolved — tx: ${result.transaction_hash}`);
 
@@ -129,7 +154,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
       ]);
 
       resolved.push(battleId);
-      await notifyResolved(provider, battleId);
+      await notifyResolved(readProvider, battleId);
     } catch (e: any) {
       const msg = e?.message ?? String(e);
       const base = e?.baseError;
@@ -141,7 +166,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
       if (msg.includes("Already resolved")) {
         await redis.zrem("battles:pending_resolve", String(battleId));
         skipped.push({ battleId, reason: "Already resolved onchain" });
-        await notifyResolved(provider, battleId);
+        await notifyResolved(readProvider, battleId);
       } else if (msg.includes("Not ready to resolve")) {
         // Defender tx not yet confirmed onchain — leave in queue for cron retry
         skipped.push({ battleId, reason: "Defender tx pending — will retry" });
