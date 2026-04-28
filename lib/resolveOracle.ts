@@ -132,7 +132,11 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
       await notifyResolved(provider, battleId);
     } catch (e: any) {
       const msg = e?.message ?? String(e);
-      console.error(`[oracle] battle ${battleId} failed:`, msg);
+      const base = e?.baseError;
+      const detail = base
+        ? `code=${base.code} message=${base.message} data=${JSON.stringify(base.data ?? "").slice(0, 300)}`
+        : msg.slice(0, 400);
+      console.error(`[oracle] battle ${battleId} failed:`, detail);
 
       if (msg.includes("Already resolved")) {
         await redis.zrem("battles:pending_resolve", String(battleId));
@@ -142,7 +146,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
         // Defender tx not yet confirmed onchain — leave in queue for cron retry
         skipped.push({ battleId, reason: "Defender tx pending — will retry" });
       } else {
-        skipped.push({ battleId, reason: msg.slice(0, 600) });
+        skipped.push({ battleId, reason: detail });
       }
     }
   }
