@@ -48,6 +48,25 @@ export default function HowItWorksPage() {
           </p>
         </motion.div>
 
+        {/* ── Intro Video ── */}
+        <motion.section {...fadeUp(0.05)} className="mb-14">
+          <SectionLabel>Watch</SectionLabel>
+          <h2 className="font-card text-2xl font-medium text-white mb-4">See it in 60 seconds</h2>
+          <div
+            className="rounded-2xl overflow-hidden"
+            style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <video
+              src="/pov-intro.mp4"
+              controls
+              playsInline
+              preload="metadata"
+              className="w-full block"
+              style={{ background: "#080810" }}
+            />
+          </div>
+        </motion.section>
+
         {/* ── Phase 1: Mint ── */}
         <motion.section {...fadeUp(0.05)} className="mb-14">
           <SectionLabel>Phase 01</SectionLabel>
