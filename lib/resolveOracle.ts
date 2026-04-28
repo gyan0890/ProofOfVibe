@@ -111,13 +111,13 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
         entrypoint: "resolve_battle",
         calldata,
       }], {
-        version: "0x3" as any,
+        version: "0x3",
         resourceBounds: {
-          l1_gas: { max_amount: "0x0", max_price_per_unit: "0x0" },
-          l2_gas: { max_amount: "0x200000", max_price_per_unit: "0x400000000" },
-          l1_data_gas: { max_amount: "0x2000", max_price_per_unit: "0x2000000000000" },
+          l1_gas:      { max_amount: 0n,        max_price_per_unit: 0x200000000000000n },
+          l2_gas:      { max_amount: 0x100000n, max_price_per_unit: 0x1000000000n },
+          l1_data_gas: { max_amount: 0x2000n,   max_price_per_unit: 0x20000000000n },
         },
-        tip: "0x0" as any,
+        tip: 0n,
       });
 
       console.log(`[oracle] battle ${battleId} resolved — tx: ${result.transaction_hash}`);
