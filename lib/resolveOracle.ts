@@ -56,7 +56,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
   }
 
   const provider = new RpcProvider({ nodeUrl: RPC_URL });
-  const oracle = new Account(provider, ORACLE_ADDRESS, ORACLE_PRIVATE_KEY);
+  const oracle = new Account({ provider, address: ORACLE_ADDRESS, signer: ORACLE_PRIVATE_KEY });
   const readContract = new Contract({ abi: NOTIFY_ABI as any, address: VIBECARD_ADDRESS, providerOrAccount: provider });
 
   const pending = await redis.zrange("battles:pending_resolve", 0, limit - 1);
