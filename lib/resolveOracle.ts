@@ -116,7 +116,7 @@ export async function resolvePendingBattles(limit = 5): Promise<ResolveResult> {
       const RESOURCE_BOUNDS = {
         l1_gas:      { max_amount: BigInt(0),        max_price_per_unit: BigInt('0x200000000000000') },
         l2_gas:      { max_amount: BigInt(0x100000), max_price_per_unit: BigInt('0x1000000000') },
-        l1_data_gas: { max_amount: BigInt(0x2000),   max_price_per_unit: BigInt('0x20000000000') },
+        l1_data_gas: { max_amount: BigInt(0x2000),   max_price_per_unit: BigInt('0x2000000000000') },
       };
 
       let result: { transaction_hash: string } | undefined;
